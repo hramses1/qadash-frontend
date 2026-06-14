@@ -382,12 +382,13 @@ defineExpose({ resetDirty, focus })
 .ce-status-unsaved { color: #f0883e; margin-left: auto; }
 
 /* ── Token colors (GitHub Dark inspired) ────────────────────────────── */
-.hl-kw   { color: #ff7b72; }                      /* keywords          */
-.hl-bi   { color: #d2a8ff; }                      /* builtins/types    */
-.hl-str  { color: #a5d6ff; }                      /* strings           */
-.hl-cmt  { color: #6e7681; font-style: italic; }  /* comments          */
-.hl-num  { color: #79c0ff; }                      /* numbers           */
-.hl-dec  { color: #e3b341; }                      /* decorators @      */
-.hl-fn   { color: #f0c18d; }                      /* def/class names   */
-.hl-call { color: #d2a8ff; }                      /* function calls    */
+/* :deep() required — v-html content doesn't receive Vue's scoped attribute */
+:deep(.hl-kw)   { color: #ff7b72; }
+:deep(.hl-bi)   { color: #d2a8ff; }
+:deep(.hl-str)  { color: #a5d6ff; }
+:deep(.hl-cmt)  { color: #6e7681; font-style: italic; }
+:deep(.hl-num)  { color: #79c0ff; }
+:deep(.hl-dec)  { color: #e3b341; }
+:deep(.hl-fn)   { color: #f0c18d; }
+:deep(.hl-call) { color: #d2a8ff; }
 </style>
