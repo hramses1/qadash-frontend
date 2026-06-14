@@ -321,21 +321,18 @@ defineExpose({ resetDirty, focus })
 .ce-ln-active { color: #c9d1d9; }
 
 /* ── Highlight + textarea stacked ───────────────────────────────────── */
-/*
-  CSS Grid stacking: both children share cell 1/1 and fill the container.
-  Grid is more reliable than position:absolute here because the grid cell
-  size is established by the flex layout chain, giving both children a
-  definite height so overflow:auto and scrolling work correctly.
-*/
 .ce-area {
   display: grid;
+  grid-template-rows: 1fr;       /* row fills container — not content-sized */
+  grid-template-columns: 1fr;    /* same for columns */
   flex: 1;
+  height: 100%;                  /* inherit definite height from flex parent */
   min-width: 0;
-  min-height: 0;   /* allow flex container to shrink it */
+  min-height: 0;
   overflow: hidden;
 }
 
-/* Both elements occupy the same grid cell — identical metrics required */
+/* Both elements in same grid cell — must share identical font/spacing metrics */
 .ce-highlight,
 .ce-ta {
   grid-row: 1;
