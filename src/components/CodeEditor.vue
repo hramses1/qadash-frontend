@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -245,6 +245,29 @@ function onScroll() {
   }
 }
 
+// ── Height sync (ResizeObserver) ──────────────────────────────────────────────
+// CSS height:100% + grid 1fr inside a flex chain is browser-inconsistent.
+// Measure the body element directly and apply explicit px height to both layers.
+let _ro = null
+
+function applyHeight(h) {
+  if (hlEl.value) hlEl.value.style.height = h + 'px'
+  if (taEl.value) taEl.value.style.height  = h + 'px'
+}
+
+onMounted(() => {
+  nextTick(() => {
+    if (!bodyEl.value) return
+    _ro = new ResizeObserver(entries => {
+      const h = entries[0]?.contentRect.height
+      if (h) applyHeight(h)
+    })
+    _ro.observe(bodyEl.value)
+  })
+})
+
+onUnmounted(() => { _ro?.disconnect() })
+
 // ── Public API ────────────────────────────────────────────────────────────────
 function resetDirty() { dirty.value = false }
 function focus() { nextTick(() => taEl.value?.focus()) }
@@ -321,22 +344,22 @@ defineExpose({ resetDirty, focus })
 .ce-ln-active { color: #c9d1d9; }
 
 /* ── Highlight + textarea stacked ───────────────────────────────────── */
+/* Width: flex-determined. Height: set via ResizeObserver in JS (applyHeight). */
 .ce-area {
-  display: grid;
-  grid-template-rows: 1fr;       /* row fills container — not content-sized */
-  grid-template-columns: 1fr;    /* same for columns */
+  position: relative;
   flex: 1;
-  height: 100%;                  /* inherit definite height from flex parent */
   min-width: 0;
-  min-height: 0;
   overflow: hidden;
 }
 
-/* Both elements in same grid cell — must share identical font/spacing metrics */
+/* Both elements overlap at top-left of .ce-area; height set by JS */
 .ce-highlight,
 .ce-ta {
-  grid-row: 1;
-  grid-column: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* height is set in pixels by ResizeObserver — see applyHeight() */
   padding: 8px 16px;
   margin: 0;
   font-family: 'Cascadia Code', 'Consolas', 'Fira Code', 'Courier New', monospace;
@@ -349,8 +372,6 @@ defineExpose({ resetDirty, focus })
   box-sizing: border-box;
   word-spacing: normal;
   letter-spacing: normal;
-  min-width: 0;
-  min-height: 0;
 }
 
 .ce-highlight {
