@@ -87,11 +87,12 @@
       <!-- Report detail -->
       <template v-else>
         <div class="report-detail-header">
-          <button class="btn btn-secondary" @click="selectedReport = null">← Volver</button>
+          <button class="btn btn-secondary no-print" @click="selectedReport = null">← Volver</button>
           <h2>{{ formatDate(selectedReport.timestamp) }}</h2>
-          <div>
-            <a :href="`/api/reports/${selectedReport.id}/download/json`" class="btn btn-sm btn-secondary" download>↓ JSON</a>
-            <a :href="`/api/reports/${selectedReport.id}/download/html`" class="btn btn-sm btn-secondary" target="_blank">↗ HTML</a>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-pdf no-print" @click="printReportPDF">⬇ PDF</button>
+            <a :href="`/api/reports/${selectedReport.id}/download/json`" class="btn btn-sm btn-secondary no-print" download>↓ JSON</a>
+            <a :href="`/api/reports/${selectedReport.id}/download/html`" class="btn btn-sm btn-secondary no-print" target="_blank">↗ HTML</a>
           </div>
         </div>
         <div class="summary-cards">
@@ -128,9 +129,10 @@
 
       <template v-else-if="stats">
 
-        <!-- Refresh button -->
+        <!-- Toolbar -->
         <div class="analytics-toolbar">
-          <button class="btn btn-secondary btn-sm" @click="reloadAnalytics">🔄 Actualizar</button>
+          <button class="btn btn-secondary btn-sm no-print" @click="reloadAnalytics">🔄 Actualizar</button>
+          <button class="btn btn-sm btn-pdf no-print" @click="printAnalyticsPDF">⬇ PDF</button>
           <span class="analytics-subtitle">Acumulado de {{ stats.totalRuns }} ejecución{{ stats.totalRuns !== 1 ? 'es' : '' }}</span>
         </div>
 
@@ -607,10 +609,102 @@ function formatDate(iso) {
   })
 }
 
+// ── PDF export ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function printReportPDF() {
+  const r = selectedReport.value
+  if (!r) return
+  const failed  = (r.summary.failed || 0) + (r.summary.errors || 0)
+  const rate    = r.summary.total > 0 ? Math.round((r.summary.passed / r.summary.total) * 100) : 0
+  const rateCol = rate >= 90 ? '#16a34a' : rate >= 60 ? '#d97706' : '#dc2626'
+  const now     = new Date().toLocaleString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+  const testsRows = r.tests.map(t => {
+    const icon   = t.status === 'passed' ? '✅' : t.status === 'failed' ? '❌' : '⚠️'
+    const rowBg  = t.status === 'failed' ? 'background:#fff5f5' : ''
+    const errRow = t.errorMsg
+      ? `<tr><td colspan="3" style="background:#fff5f5;padding:0 10px 8px"><pre style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:0 4px 4px 0;padding:8px 10px;font-size:11px;font-family:Consolas,monospace;white-space:pre-wrap;color:#991b1b;margin:0">${esc(t.errorMsg)}</pre></td></tr>`
+      : ''
+    return `<tr style="${rowBg}">
+      <td style="width:32px;font-size:15px;padding:7px 8px">${icon}</td>
+      <td style="font-family:Consolas,monospace;font-size:12px;word-break:break-all;padding:7px 8px">${esc(t.id)}</td>
+      <td style="text-align:right;width:72px;color:#64748b;white-space:nowrap;padding:7px 8px">${t.duration != null ? t.duration.toFixed(2) + 's' : '—'}</td>
+    </tr>${errRow}`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<title>Reporte QA — ${esc(formatDate(r.timestamp))}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#1e293b;background:white;padding:40px}
+h1{font-size:22px;font-weight:700;margin-bottom:6px}
+.sub{color:#64748b;font-size:13px;margin-bottom:28px}
+.cards{display:flex;gap:14px;margin-bottom:28px;flex-wrap:wrap}
+.card{border:1px solid #e2e8f0;border-radius:8px;padding:14px 20px;text-align:center;min-width:90px}
+.num{font-size:30px;font-weight:700;line-height:1;margin-bottom:5px}
+.lbl{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+.sec{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:24px 0 10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px;border-bottom:2px solid #e2e8f0;font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+td{border-bottom:1px solid #f1f5f9;vertical-align:top}
+.footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}
+@media print{body{padding:16px}tr{break-inside:avoid}}
+</style>
+</head><body>
+<h1>⚡ Reporte de Ejecución QA</h1>
+<p class="sub">Ejecución: ${esc(formatDate(r.timestamp))} &nbsp;·&nbsp; Generado: ${esc(now)}</p>
+<div class="cards">
+  <div class="card"><div class="num">${r.summary.total}</div><div class="lbl">Total</div></div>
+  <div class="card"><div class="num" style="color:#16a34a">${r.summary.passed}</div><div class="lbl">Pasaron</div></div>
+  <div class="card"><div class="num" style="color:${failed > 0 ? '#dc2626' : '#16a34a'}">${failed}</div><div class="lbl">Fallaron</div></div>
+  <div class="card"><div class="num">${r.summary.duration != null ? r.summary.duration.toFixed(1) + 's' : '—'}</div><div class="lbl">Duración</div></div>
+  <div class="card"><div class="num" style="color:${rateCol}">${rate}%</div><div class="lbl">Pass Rate</div></div>
+</div>
+<div class="sec">Detalle de Tests (${r.tests.length})</div>
+<table>
+  <thead><tr>
+    <th></th><th>Test ID</th><th style="text-align:right">Duración</th>
+  </tr></thead>
+  <tbody>${testsRows}</tbody>
+</table>
+<div class="footer">QA Dashboard &nbsp;·&nbsp; ${new Date().getFullYear()}</div>
+<script>
+window.addEventListener('load',function(){
+  setTimeout(function(){window.print()},250)
+  window.addEventListener('afterprint',function(){window.close()})
+})
+<\/script>
+</body></html>`
+
+  const win = window.open('', '_blank', 'width=960,height=720')
+  if (!win) { alert('Permite ventanas emergentes para generar el PDF'); return }
+  win.document.write(html)
+  win.document.close()
+}
+
+function printAnalyticsPDF() {
+  window.print()
+}
+
 onMounted(loadReports)
 </script>
 
 <style scoped>
+/* ── PDF button ─────────────────────────────────────────────────── */
+.btn-pdf {
+  background: linear-gradient(135deg, #1e293b, #334155);
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.btn-pdf:hover { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; }
+
 /* ── Header & tabs ───────────────────────────────────────────────── */
 .rp-header {
   display: flex;

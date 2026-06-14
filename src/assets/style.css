@@ -1150,3 +1150,12 @@ input[type="checkbox"] {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ─── Print / PDF (analytics window.print()) ────── */
+@media print {
+  .sidebar         { display: none !important; }
+  .no-print        { display: none !important; }
+  body, #app, .app-layout { height: auto !important; overflow: visible !important; background: white !important; }
+  .main-content    { overflow: visible !important; height: auto !important; }
+  .view-container  { height: auto !important; max-width: 100% !important; padding: 12px !important; }
+}
