@@ -24,10 +24,10 @@
 
       <div class="form-group">
         <label>Comando pytest</label>
-        <input v-model="form.pytestCmd" type="text" class="input" placeholder="venv\Scripts\pytest.exe" />
+        <input v-model="form.pytestCmd" type="text" class="input" placeholder=".\venv\Scripts\pytest.exe" />
         <small class="hint">
-          Ejemplos: <code>pytest</code> · <code>python -m pytest</code> ·
-          <code>C:\venv\Scripts\pytest.exe</code>
+          Siempre se usa el pytest del entorno virtual: <code>.\venv\Scripts\pytest.exe</code>
+          (el venv debe llamarse <code>venv</code>).
         </small>
       </div>
 
@@ -99,7 +99,7 @@
         </div>
         <div class="check-item" :class="checks.venv.ok ? 'check-ok' : 'check-fail'">
           <span>{{ checks.venv.ok ? '✅' : '❌' }}</span>
-          <span class="check-name">venv</span>
+          <span class="check-name">virtualenv</span>
           <span class="check-detail">{{ checks.venv.ok ? checks.venv.type : checks.venv.error }}</span>
         </div>
       </div>
@@ -208,7 +208,7 @@
                   <span class="detail-value">{{ checks?.git?.version }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">venv</span>
+                  <span class="detail-label">virtualenv</span>
                   <span class="detail-value">{{ checks?.venv?.type }}</span>
                 </div>
                 <div class="detail-row">
@@ -237,14 +237,18 @@
                   placeholder="develop"
                 />
                 <div class="branch-chips">
+                  <span v-if="branchesLoading" class="branch-loading">Cargando ramas…</span>
                   <button
-                    v-for="b in ['develop', 'main', 'master', 'staging']"
+                    v-for="b in branches"
                     :key="b"
                     class="branch-chip"
                     :class="{ 'branch-chip-active': updateBranch === b }"
                     @click="updateBranch = b"
                     type="button"
                   >{{ b }}</button>
+                  <span v-if="!branchesLoading && branches.length === 0" class="branch-loading">
+                    No se detectaron ramas — escribe el nombre manualmente
+                  </span>
                 </div>
               </div>
               <small class="hint">Se ejecutará: <code>git pull origin {{ updateBranch || 'develop' }}</code></small>
@@ -365,7 +369,7 @@ onMounted(async () => {
     form.value = {
       projectPath: data.projectPath || '',
       envPath: data.envPath || '',
-      pytestCmd: data.pytestCmd || 'pytest'
+      pytestCmd: data.pytestCmd || '.\\venv\\Scripts\\pytest.exe'
     }
   } catch {
     error.value = 'No se pudo cargar la configuración'
@@ -424,8 +428,9 @@ const {
   installDone, updateDone, autoError, updateError,
   installing, pulling, checking, savingAuto,
   progress, updateProgress, updateBranch,
+  branches, branchesLoading,
   checksOk, anyBusy,
-  loadAutoConfig, checkInstallStatus, checkPrereqs,
+  loadAutoConfig, checkInstallStatus, checkPrereqs, fetchBranches,
   saveAutoConfig, startInstall, startUpdate, initSocketListeners
 } = useAutomationState()
 
@@ -461,6 +466,7 @@ function openModal(op) {
   operation.value = op
   modalPhase.value = 'confirm'
   showModal.value = true
+  if (op === 'update') fetchBranches()
 }
 
 function closeModal() {
@@ -628,4 +634,5 @@ function updateStepClass(key) {
 }
 .branch-chip:hover { border-color: #6366f1; color: #6366f1; }
 .branch-chip-active { background: rgba(99,102,241,.15); border-color: #6366f1; color: #6366f1; }
+.branch-loading { font-size: .8rem; opacity: .65; align-self: center; }
 </style>

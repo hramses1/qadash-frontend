@@ -19,6 +19,8 @@ const savingAuto = ref(false)
 const progress = ref({ percent: 0, label: '', step: '' })
 const updateProgress = ref({ percent: 0, label: '', step: '' })
 const updateBranch = ref('develop')
+const branches = ref([])
+const branchesLoading = ref(false)
 
 let logIdCounter = 0
 let socketInitialized = false
@@ -43,6 +45,30 @@ async function checkInstallStatus() {
     const res = await fetch(`/api/automation/install-status?${params}`)
     installStatus.value = await res.json()
   } catch {}
+}
+
+async function fetchBranches() {
+  if (!autoConfig.value.installPath) return
+  branchesLoading.value = true
+  try {
+    const params = new URLSearchParams({ installPath: autoConfig.value.installPath })
+    const res = await fetch(`/api/automation/branches?${params}`)
+    const data = await res.json()
+    if (Array.isArray(data.branches)) {
+      branches.value = data.branches
+      // Si la rama seleccionada no existe en el repo, elegir una sensata
+      if (branches.value.length && !branches.value.includes(updateBranch.value)) {
+        updateBranch.value =
+          branches.value.includes('develop') ? 'develop' :
+          branches.value.includes('main')    ? 'main'    :
+          branches.value[0]
+      }
+    }
+  } catch {
+    branches.value = []
+  } finally {
+    branchesLoading.value = false
+  }
 }
 
 async function loadAutoConfig() {
@@ -191,8 +217,9 @@ export function useAutomationState() {
     installDone, updateDone, autoError, updateError,
     installing, pulling, checking, savingAuto,
     progress, updateProgress, updateBranch,
+    branches, branchesLoading,
     checksOk, anyBusy,
-    loadAutoConfig, checkInstallStatus, checkPrereqs,
+    loadAutoConfig, checkInstallStatus, checkPrereqs, fetchBranches,
     saveAutoConfig, startInstall, startUpdate, initSocketListeners
   }
 }
