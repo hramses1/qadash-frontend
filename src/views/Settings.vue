@@ -414,7 +414,12 @@ async function save() {
     })
     const data = await res.json()
     if (data.error) error.value = data.error
-    else saveMsg.value = 'Configuración guardada correctamente'
+    else if (data.projectChanged && data.reset) {
+      const n = data.reset.removedReports || 0
+      saveMsg.value = `Configuración guardada. Proyecto cambiado: analítica reiniciada (${n} reporte${n !== 1 ? 's' : ''} eliminado${n !== 1 ? 's' : ''}).`
+    } else {
+      saveMsg.value = 'Configuración guardada correctamente'
+    }
   } catch (e) {
     error.value = e.message
   } finally {
