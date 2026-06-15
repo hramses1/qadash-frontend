@@ -251,8 +251,11 @@ function onScroll() {
 let _ro = null
 
 function applyHeight(h) {
-  if (hlEl.value) hlEl.value.style.height = h + 'px'
-  if (taEl.value) taEl.value.style.height  = h + 'px'
+  // Apply exactly the body height. The 60px padding-bottom in CSS ensures
+  // the last code line is never clipped by a horizontal scrollbar or rounding.
+  const px = h + 'px'
+  if (hlEl.value) hlEl.value.style.height = px
+  if (taEl.value) taEl.value.style.height  = px
 }
 
 onMounted(() => {
@@ -360,7 +363,7 @@ defineExpose({ resetDirty, focus })
   left: 0;
   width: 100%;
   /* height is set in pixels by ResizeObserver — see applyHeight() */
-  padding: 8px 16px;
+  padding: 8px 16px 60px; /* 60px bottom: ensure last lines are never clipped */
   margin: 0;
   font-family: 'Cascadia Code', 'Consolas', 'Fira Code', 'Courier New', monospace;
   font-size: 13.5px;
