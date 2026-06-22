@@ -36,7 +36,6 @@
   <div v-else class="file-node">
     <TestList
       :file="node.file"
-      :fileIdx="node.fileIdx"
       :testStatuses="testStatuses"
       @toggle="$emit('toggle', $event)"
       @toggle-file="$emit('toggle-file', $event)"

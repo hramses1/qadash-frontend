@@ -4,7 +4,15 @@
 
     <!-- ── Rutas del Proyecto ── -->
     <div class="card">
-      <h2 class="card-title">Rutas del Proyecto</h2>
+      <button class="card-toggle" @click="showPaths = !showPaths" :aria-expanded="showPaths">
+        <span class="toggle-caret" :class="{ open: showPaths }">▸</span>
+        <h2 class="card-title">Rutas del Proyecto</h2>
+        <span class="toggle-badge" :class="pathsReady ? 'badge-ok' : 'badge-warn'">
+          {{ pathsReady ? 'Configurada' : 'Incompleta' }}
+        </span>
+      </button>
+
+      <div v-show="showPaths" class="card-collapsible">
 
       <div class="form-group">
         <label>Ruta absoluta al proyecto de automatización</label>
@@ -18,8 +26,15 @@
         <label>Ruta al archivo .env del proyecto</label>
         <div class="input-browse-row">
           <input v-model="form.envPath" type="text" class="input" placeholder="C:\ruta\al\proyecto\.env" />
+          <button class="btn-browse" @click="detectEnv" :disabled="detectingEnv || !form.projectPath" title="Detectar .env automáticamente">
+            {{ detectingEnv ? '⏳' : '🔎' }}
+          </button>
           <button class="btn-browse" @click="browse('file', 'envPath')" :disabled="browsing" title="Seleccionar archivo">📄</button>
         </div>
+        <small class="hint">
+          <span v-if="envMsg" :class="envFound ? 'env-found' : 'env-miss'">{{ envMsg }}</span>
+          <span v-else>Se detecta automáticamente dentro del proyecto. También puedes ingresarlo manualmente o con 📄.</span>
+        </small>
       </div>
 
       <div class="form-group">
@@ -28,6 +43,28 @@
         <small class="hint">
           Siempre se usa el pytest del entorno virtual: <code>.\venv\Scripts\pytest.exe</code>
           (el venv debe llamarse <code>venv</code>).
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label>Selenium Grid (URL remota)</label>
+        <input v-model="form.seleniumRemoteUrl" type="text" class="input" placeholder="http://localhost:4444/wd/hub" />
+        <small class="hint">
+          Vacío → Chrome local. Con valor → los tests usan el contenedor Selenium
+          (<code>webdriver.Remote</code>). Levanta el grid con <code>docker compose up -d selenium</code>.
+          Vista en vivo: <code>http://localhost:7900</code>.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label>Carpeta de archivos .txt</label>
+        <div class="input-browse-row">
+          <input v-model="form.txtFolderPath" type="text" class="input" placeholder="C:\ruta\a\carpeta\con\txt" />
+          <button class="btn-browse" @click="browse('folder', 'txtFolderPath')" :disabled="browsing" title="Seleccionar carpeta">📁</button>
+        </div>
+        <small class="hint">
+          Carpeta con archivos <code>.txt</code>. Su contenido se muestra en
+          <RouterLink to="/datos-txt">Datos TXT</RouterLink> y se puede descargar en Excel.
         </small>
       </div>
 
@@ -45,23 +82,33 @@
       </div>
       <div v-if="saveMsg" class="alert alert-success">✅ {{ saveMsg }}</div>
       <div v-if="error" class="alert alert-error">❌ {{ error }}</div>
+
+      </div>
     </div>
 
     <!-- ── Instalación de Automatización ── -->
     <div class="card">
-      <h2 class="card-title">Instalación de Automatización</h2>
+      <button class="card-toggle" @click="showInstall = !showInstall" :aria-expanded="showInstall">
+        <span class="toggle-caret" :class="{ open: showInstall }">▸</span>
+        <h2 class="card-title">Instalación de Automatización</h2>
+        <span v-if="installStatus.checked" class="toggle-badge" :class="allReady ? 'badge-ok' : 'badge-warn'">
+          {{ allReady ? 'Lista' : 'Pendiente' }}
+        </span>
+      </button>
+
+      <div v-show="showInstall" class="card-collapsible">
       <p class="hint-text">
         Instala automáticamente el repositorio: clona desde GitHub,
         crea el entorno virtual e instala las dependencias.
       </p>
 
       <!-- Estado de instalación -->
-      <div v-if="installStatus.checked" class="install-status-box" :class="installStatus.fullyInstalled ? 'status-complete' : 'status-partial'">
+      <div v-if="installStatus.checked" class="install-status-box" :class="allReady ? 'status-complete' : 'status-partial'">
         <div class="status-header">
           <span class="status-title">
-            {{ installStatus.fullyInstalled ? '✅ Automatización instalada y lista' : '⚠️ Estado de instalación' }}
+            {{ allReady ? '✅ Automatización lista para ejecutar' : '⚠️ Estado de instalación' }}
           </span>
-          <button class="btn-icon" @click="checkInstallStatus" title="Actualizar estado">↺</button>
+          <button class="btn-icon" @click="refreshReadiness" title="Actualizar estado">↺</button>
         </div>
         <div class="status-checks">
           <span :class="installStatus.repoCloned ? 'sc-ok' : 'sc-no'">
@@ -73,6 +120,15 @@
           <span :class="installStatus.depsInstalled ? 'sc-ok' : 'sc-no'">
             {{ installStatus.depsInstalled ? '✅' : '❌' }} Dependencias
           </span>
+          <span :class="dockerReady ? 'sc-ok' : 'sc-no'">
+            {{ dockerReady ? '✅' : (checks?.docker?.installed ? '⚠️' : '❌') }} Docker
+          </span>
+        </div>
+        <div v-if="installStatus.fullyInstalled && dockerNeedsStart" class="status-docker-hint">
+          Repo listo, pero Docker Desktop está apagado.
+          <button class="btn btn-sm btn-secondary" @click="startDocker" :disabled="startingDocker || anyBusy">
+            {{ startingDocker ? '⏳ Arrancando…' : '▶️ Iniciar Docker' }}
+          </button>
         </div>
       </div>
 
@@ -102,9 +158,25 @@
           <span class="check-name">virtualenv</span>
           <span class="check-detail">{{ checks.venv.ok ? checks.venv.type : checks.venv.error }}</span>
         </div>
+        <div class="check-item" :class="checks.docker?.ok ? 'check-ok' : (checks.docker?.installed ? 'check-warn' : 'check-fail')">
+          <span>{{ checks.docker?.ok ? '✅' : (checks.docker?.installed ? '⚠️' : '❌') }}</span>
+          <span class="check-name">Docker</span>
+          <span class="check-detail">
+            {{ checks.docker?.ok ? `Docker ${checks.docker.version} (engine activo)` : checks.docker?.error }}
+          </span>
+          <button
+            v-if="dockerNeedsStart"
+            class="btn btn-sm btn-secondary check-action"
+            @click="startDocker"
+            :disabled="startingDocker || anyBusy"
+          >
+            {{ startingDocker ? '⏳ Arrancando…' : '▶️ Iniciar Docker Desktop' }}
+          </button>
+        </div>
       </div>
 
-      <div v-if="checks && checksOk"  class="alert alert-success" style="margin-top:.75rem">✅ Todos los requisitos disponibles.</div>
+      <div v-if="checks && checksOk && dockerReady"  class="alert alert-success" style="margin-top:.75rem">✅ Todos los requisitos disponibles (incluido Docker).</div>
+      <div v-if="checks && checksOk && !dockerReady" class="alert alert-warning" style="margin-top:.75rem">⚠️ Puedes instalar el repo, pero Docker no está listo: los tests con grid Selenium no correrán hasta arrancarlo.</div>
       <div v-if="checks && !checksOk" class="alert alert-error"   style="margin-top:.75rem">❌ Faltan requisitos. Instálalos antes de continuar.</div>
 
       <!-- Paso 2 -->
@@ -156,6 +228,8 @@
 
       <div v-if="autoError"   class="alert alert-error" style="margin-top:1rem">❌ {{ autoError }}</div>
       <div v-if="updateError" class="alert alert-error" style="margin-top:1rem">❌ {{ updateError }}</div>
+
+      </div>
     </div>
 
     <!-- ── Acerca de ── -->
@@ -210,6 +284,10 @@
                 <div class="detail-row">
                   <span class="detail-label">virtualenv</span>
                   <span class="detail-value">{{ checks?.venv?.type }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Docker</span>
+                  <span class="detail-value">{{ checks?.docker?.ok ? `${checks.docker.version} (activo)` : (checks?.docker?.installed ? 'instalado (apagado)' : 'no instalado') }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Repositorio</span>
@@ -332,7 +410,7 @@ import { useSocket } from '../composables/useSocket'
 import { useAutomationState } from '../composables/useAutomationState'
 
 // ── Config principal ──
-const form = ref({ projectPath: '', envPath: '', pytestCmd: 'pytest' })
+const form = ref({ projectPath: '', envPath: '', pytestCmd: 'pytest', txtFolderPath: '', seleniumRemoteUrl: '' })
 const saving = ref(false)
 const validating = ref(false)
 const browsing = ref(false)
@@ -340,11 +418,50 @@ const validationResult = ref(null)
 const saveMsg = ref('')
 const error = ref('')
 
+// Colapsables
+const showPaths = ref(true)
+const showInstall = ref(false)
+
+// Estado de rutas: completa si proyecto + .env + pytest definidos
+const pathsReady = computed(() =>
+  !!form.value.projectPath && !!form.value.envPath && !!form.value.pytestCmd
+)
+
+// Auto-detección .env
+const detectingEnv = ref(false)
+const envMsg = ref('')
+const envFound = ref(false)
+
+async function detectEnv(silent = false) {
+  if (!form.value.projectPath) return
+  detectingEnv.value = true
+  if (!silent) envMsg.value = ''
+  try {
+    const params = new URLSearchParams({ projectPath: form.value.projectPath })
+    const res = await fetch(`/api/config/detect-env?${params}`)
+    const data = await res.json()
+    if (data.path) {
+      form.value.envPath = data.path
+      envFound.value = true
+      envMsg.value = `✅ .env detectado: ${data.path}`
+    } else {
+      envFound.value = false
+      if (!silent) envMsg.value = '⚠️ No se encontró .env en el proyecto. Ingrésalo manualmente.'
+    }
+  } catch (e) {
+    envFound.value = false
+    if (!silent) envMsg.value = `Error al detectar: ${e.message}`
+  } finally {
+    detectingEnv.value = false
+  }
+}
+
 async function browse(type, target) {
   browsing.value = true
   try {
     const currentVal = target === 'projectPath' ? form.value.projectPath
       : target === 'envPath' ? form.value.envPath
+      : target === 'txtFolderPath' ? form.value.txtFolderPath
       : autoConfig.value.installPath
     const params = new URLSearchParams({ type })
     if (currentVal) params.set('startPath', currentVal)
@@ -353,6 +470,7 @@ async function browse(type, target) {
     if (data.path) {
       if (target === 'projectPath') form.value.projectPath = data.path
       else if (target === 'envPath') form.value.envPath = data.path
+      else if (target === 'txtFolderPath') form.value.txtFolderPath = data.path
       else if (target === 'installPath') autoConfig.value.installPath = data.path
     }
   } catch (e) {
@@ -369,14 +487,25 @@ onMounted(async () => {
     form.value = {
       projectPath: data.projectPath || '',
       envPath: data.envPath || '',
-      pytestCmd: data.pytestCmd || '.\\venv\\Scripts\\pytest.exe'
+      pytestCmd: data.pytestCmd || '.\\venv\\Scripts\\pytest.exe',
+      txtFolderPath: data.txtFolderPath || '',
+      seleniumRemoteUrl: data.seleniumRemoteUrl || ''
     }
+    // Auto-detecta .env si hay proyecto pero no ruta .env guardada
+    if (form.value.projectPath && !form.value.envPath) detectEnv(true)
   } catch {
     error.value = 'No se pudo cargar la configuración'
   }
 
+  // Al cambiar el proyecto, intenta autodetectar .env si el campo está vacío
+  watch(() => form.value.projectPath, () => {
+    if (form.value.projectPath && !form.value.envPath) detectEnv(true)
+  })
+
   if (!autoConfig.value.installPath) await loadAutoConfig()
   if (!installStatus.value.checked) await checkInstallStatus()
+  // Verifica requisitos (incl. Docker) al entrar para mostrar readiness real.
+  if (!checks.value) checkPrereqs()
 
   const { socket } = useSocket()
   initSocketListeners(socket, (projectPath, pytestCmd) => {
@@ -431,13 +560,18 @@ async function save() {
 const {
   checks, autoConfig, installStatus, installLogs,
   installDone, updateDone, autoError, updateError,
-  installing, pulling, checking, savingAuto,
+  installing, pulling, checking, savingAuto, startingDocker,
   progress, updateProgress, updateBranch,
   branches, branchesLoading,
-  checksOk, anyBusy,
+  checksOk, dockerReady, dockerNeedsStart, allReady, anyBusy,
   loadAutoConfig, checkInstallStatus, checkPrereqs, fetchBranches,
-  saveAutoConfig, startInstall, startUpdate, initSocketListeners
+  saveAutoConfig, startInstall, startUpdate, startDocker, initSocketListeners
 } = useAutomationState()
+
+// Refresca estado de instalación + requisitos (Docker incluido) en un clic.
+async function refreshReadiness() {
+  await Promise.all([checkInstallStatus(), checkPrereqs()])
+}
 
 // ── Modal ──
 const showModal = ref(false)
@@ -512,6 +646,28 @@ function updateStepClass(key) {
 <style scoped>
 .step-label { font-weight: 600; font-size: 0.95rem; }
 
+/* Cabecera colapsable */
+.card-toggle {
+  display: flex; align-items: center; gap: .6rem;
+  width: 100%; background: none; border: none; cursor: pointer;
+  padding: 0; margin: 0; color: inherit; text-align: left;
+}
+.card-toggle .card-title { margin: 0; }
+.toggle-caret {
+  font-size: .9rem; opacity: .6; transition: transform .2s; display: inline-block;
+}
+.toggle-caret.open { transform: rotate(90deg); }
+.toggle-badge {
+  margin-left: auto; font-size: .72rem; font-weight: 600;
+  padding: .15rem .55rem; border-radius: 99px;
+}
+.badge-ok   { background: rgba(34,197,94,.15); color: #16a34a; }
+.badge-warn { background: rgba(234,179,8,.15); color: #b45309; }
+.card-collapsible { margin-top: 1rem; }
+
+.env-found { color: #16a34a; }
+.env-miss  { color: #b45309; }
+
 .step-divider {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
@@ -534,8 +690,17 @@ function updateStepClass(key) {
 .check-item { display: flex; align-items: center; gap: .75rem; padding: .6rem .9rem; border-radius: 6px; font-size: .9rem; }
 .check-ok   { background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.3); }
 .check-fail { background: rgba(239,68,68,.08);  border: 1px solid rgba(239,68,68,.3); }
+.check-warn { background: rgba(234,179,8,.08);  border: 1px solid rgba(234,179,8,.35); }
 .check-name { font-weight: 600; min-width: 60px; }
 .check-detail { opacity: .75; font-size: .82rem; }
+.check-action { margin-left: auto; white-space: nowrap; }
+
+.status-docker-hint {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  margin-top: .7rem; padding-top: .6rem;
+  border-top: 1px dashed var(--border, #e2e8f0);
+  font-size: .83rem; opacity: .9;
+}
 
 /* Modal */
 .modal-overlay {

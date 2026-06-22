@@ -26,10 +26,21 @@ let logIdCounter = 0
 let socketInitialized = false
 let applyConfigCb = null
 
+const startingDocker = ref(false)
+
+// Requisitos para CLONAR/instalar el repo (no requiere Docker corriendo).
 const checksOk = computed(() =>
   checks.value && checks.value.python.ok && checks.value.git.ok && checks.value.venv.ok
 )
-const anyBusy = computed(() => installing.value || pulling.value || checking.value)
+// Docker listo (binario + daemon) — necesario para ejecutar tests con el grid.
+const dockerReady = computed(() => !!(checks.value && checks.value.docker && checks.value.docker.ok))
+// Docker instalado pero apagado → se puede arrancar desde el dashboard.
+const dockerNeedsStart = computed(() =>
+  !!(checks.value && checks.value.docker && checks.value.docker.installed && !checks.value.docker.daemonRunning)
+)
+// Todo listo para correr la automatización de punta a punta.
+const allReady = computed(() => checksOk.value && dockerReady.value && installStatus.value.fullyInstalled)
+const anyBusy = computed(() => installing.value || pulling.value || checking.value || startingDocker.value)
 
 function addLog(message, type = 'info') {
   installLogs.value.push({ id: logIdCounter++, message, type })
@@ -89,6 +100,22 @@ async function checkPrereqs() {
     autoError.value = e.message
   } finally {
     checking.value = false
+  }
+}
+
+async function startDocker() {
+  startingDocker.value = true
+  autoError.value = ''
+  try {
+    const res = await fetch('/api/docker/start-desktop', { method: 'POST' })
+    const data = await res.json()
+    if (!data.ready) autoError.value = data.error || 'No se pudo arrancar Docker Desktop'
+    // Re-verificar requisitos para refrescar el estado de Docker.
+    await checkPrereqs()
+  } catch (e) {
+    autoError.value = e.message
+  } finally {
+    startingDocker.value = false
   }
 }
 
@@ -215,11 +242,11 @@ export function useAutomationState() {
   return {
     checks, autoConfig, installStatus, installLogs,
     installDone, updateDone, autoError, updateError,
-    installing, pulling, checking, savingAuto,
+    installing, pulling, checking, savingAuto, startingDocker,
     progress, updateProgress, updateBranch,
     branches, branchesLoading,
-    checksOk, anyBusy,
+    checksOk, dockerReady, dockerNeedsStart, allReady, anyBusy,
     loadAutoConfig, checkInstallStatus, checkPrereqs, fetchBranches,
-    saveAutoConfig, startInstall, startUpdate, initSocketListeners
+    saveAutoConfig, startInstall, startUpdate, startDocker, initSocketListeners
   }
 }

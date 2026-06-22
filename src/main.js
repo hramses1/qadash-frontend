@@ -7,6 +7,8 @@ import Dashboard from './views/Dashboard.vue'
 import EnvEditor from './views/EnvEditor.vue'
 import Reports from './views/Reports.vue'
 import Settings from './views/Settings.vue'
+import TxtData from './views/TxtData.vue'
+import Docker from './views/Docker.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -15,6 +17,8 @@ const router = createRouter({
     { path: '/dashboard', component: Dashboard },
     { path: '/env', component: EnvEditor },
     { path: '/reports', component: Reports },
+    { path: '/datos-txt', component: TxtData },
+    { path: '/docker', component: Docker },
     { path: '/settings', component: Settings }
   ]
 })
