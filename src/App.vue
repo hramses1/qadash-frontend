@@ -24,6 +24,18 @@
           </RouterLink>
         </li>
         <li>
+          <RouterLink to="/datos-txt" class="nav-link">
+            <span class="nav-icon">📄</span>
+            <span>Datos TXT</span>
+          </RouterLink>
+        </li>
+        <li>
+          <RouterLink to="/docker" class="nav-link">
+            <span class="nav-icon">🐳</span>
+            <span>Docker</span>
+          </RouterLink>
+        </li>
+        <li>
           <RouterLink to="/settings" class="nav-link">
             <span class="nav-icon">🔧</span>
             <span>Configuración</span>
@@ -38,7 +50,7 @@
     </nav>
     <main class="main-content">
       <RouterView v-slot="{ Component }">
-        <KeepAlive include="Dashboard">
+        <KeepAlive :include="['Dashboard', 'Docker']">
           <component :is="Component" />
         </KeepAlive>
       </RouterView>

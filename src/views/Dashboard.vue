@@ -53,6 +53,9 @@
       <!-- Run error -->
       <div v-if="runError" class="alert alert-error">{{ runError }}</div>
 
+      <!-- Preparing (Docker Selenium) -->
+      <div v-if="preparing" class="alert alert-warning">⏳ {{ preparingMsg }}</div>
+
       <!-- Progress -->
       <div v-if="running || executionDone" class="progress-section">
         <ProgressBar
@@ -123,10 +126,24 @@
             Seleccionar todos
           </label>
           <div class="tree-controls">
+            <button
+              class="btn-tree-ctrl"
+              :class="{ 'btn-tree-ctrl-on': showOnlySelected }"
+              @click="toggleFocusMode"
+              :disabled="selectedCount === 0 && !showOnlySelected"
+              :title="showOnlySelected ? 'Mostrar todos los tests' : 'Trabajar solo con los seleccionados (oculta el resto)'"
+            >
+              {{ showOnlySelected ? `👁 Mostrar todos (${hiddenCount} ocultos)` : '🙈 Solo seleccionados' }}
+            </button>
             <button class="btn-tree-ctrl" @click="expandAll" title="Desplegar carpetas y archivos">⊞ Desplegar todos</button>
             <button class="btn-tree-ctrl" @click="expandFoldersOnly" title="Solo carpetas — archivos colapsados">⊟ Solo carpetas</button>
             <button class="btn-tree-ctrl" @click="collapseAll" title="Ocultar todo">⊠ Ocultar todos</button>
           </div>
+        </div>
+
+        <div v-if="showOnlySelected && focusedIds.size === 0" class="empty-state">
+          No hay tests en el set de trabajo.
+          <button class="btn-tree-ctrl" @click="toggleFocusMode">Mostrar todos</button>
         </div>
 
         <FolderNode
@@ -213,6 +230,14 @@
           <p class="run-modal-total" v-if="runRepeat > 1">
             Total: {{ selectedCount * runRepeat }} ejecuciones
           </p>
+          <label v-if="seleniumRemoteUrl" class="checkbox-label run-modal-docker">
+            <input type="checkbox" v-model="useDocker" />
+            🐳 Levantar Selenium en Docker antes de ejecutar
+          </label>
+          <p v-if="seleniumRemoteUrl && useDocker" class="run-modal-hint">
+            Grid: <code>{{ seleniumRemoteUrl }}</code> · navegador en vivo:
+            <a href="http://localhost:7900" target="_blank" rel="noopener">localhost:7900</a> (pass: secret)
+          </p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showRunModal = false">Cancelar</button>
@@ -247,6 +272,10 @@ const projectPath = ref('')
 const cacheTimestamp = ref(null)   // when last collection was done
 const showRunModal = ref(false)
 const runRepeat = ref(1)
+const useDocker = ref(false)
+const seleniumRemoteUrl = ref('')
+const preparing = ref(false)
+const preparingMsg = ref('')
 const collecting = ref(false)
 const running = ref(false)
 const collectError = ref('')
@@ -259,6 +288,8 @@ const testStatuses = ref({})
 
 const executionLog = ref([])
 const runBaseCount = ref(0)
+const showOnlySelected = ref(false)   // modo "trabajar solo con un set"
+const focusedIds = ref(new Set())     // set congelado de tests visibles en ese modo
 
 // ── Code editor modal ──
 const editorModal   = ref(false)
@@ -309,7 +340,7 @@ function toggleError(key) {
 function buildTree(fileList) {
   const root = []
   const folderMap = {}
-  fileList.forEach((file, fileIdx) => {
+  fileList.forEach((file) => {
     const parts = file.name.split('/')
     const fileName = parts[parts.length - 1]
     const dirParts = parts.slice(0, -1)
@@ -324,12 +355,47 @@ function buildTree(fileList) {
       }
       currentLevel = folderMap[currentPath].children
     }
-    currentLevel.push({ type: 'file', name: fileName, fileIdx, file })
+    currentLevel.push({ type: 'file', name: fileName, file })
   })
   return root
 }
 
-const fileTree = computed(() => buildTree(files.value))
+// Modo enfoque: muestra solo el set CONGELADO `focusedIds`, no la selección viva.
+// Así, desmarcar un test dentro del modo lo excluye del run SIN ocultarlo (se
+// puede volver a marcar). El set se fija al activar el modo.
+const displayedFiles = computed(() => {
+  if (!showOnlySelected.value) return files.value
+  const set = focusedIds.value
+  return files.value
+    .map(f => ({ ...f, tests: f.tests.filter(t => set.has(t.id)) }))
+    .filter(f => f.tests.length > 0)
+})
+
+const fileTree = computed(() => buildTree(displayedFiles.value))
+
+const hiddenCount = computed(() =>
+  showOnlySelected.value ? totalTests.value - focusedIds.value.size : 0
+)
+
+function selectedIds() {
+  return files.value.flatMap(f => f.tests.filter(t => t.selected).map(t => t.id))
+}
+
+// Activa/desactiva el modo enfoque. Al activar, congela los seleccionados actuales.
+function toggleFocusMode() {
+  if (!showOnlySelected.value) {
+    focusedIds.value = new Set(selectedIds())
+    if (focusedIds.value.size === 0) return   // nada que enfocar
+    showOnlySelected.value = true
+  } else {
+    showOnlySelected.value = false
+    focusedIds.value = new Set()
+  }
+  if (projectPath.value) {
+    lsSave('onlysel', showOnlySelected.value)
+    lsSave('focus', [...focusedIds.value])
+  }
+}
 
 const totalTests = computed(() =>
   files.value.reduce((sum, f) => sum + f.tests.length, 0)
@@ -387,12 +453,16 @@ function expandFoldersOnly() {
   fileExpanded.value = fileMap
 }
 
-function toggleTest({ fileIdx, testIdx }) {
-  files.value[fileIdx].tests[testIdx].selected = !files.value[fileIdx].tests[testIdx].selected
+function toggleTest({ id }) {
+  for (const f of files.value) {
+    const t = f.tests.find(t => t.id === id)
+    if (t) { t.selected = !t.selected; return }
+  }
 }
 
-function toggleFile({ fileIdx }) {
-  const file = files.value[fileIdx]
+function toggleFile({ name }) {
+  const file = files.value.find(f => f.name === name)
+  if (!file) return
   const allFileSelected = file.tests.every(t => t.selected)
   file.tests.forEach(t => { t.selected = !allFileSelected })
 }
@@ -521,10 +591,10 @@ async function runSelected() {
   const res = await fetch('/api/tests/run', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ testIds: selected })
+    body: JSON.stringify({ testIds: selected, useDocker: useDocker.value })
   })
   const data = await res.json()
-  if (data.error) runError.value = data.error
+  if (data.error) { runError.value = data.error; preparing.value = false }
 }
 
 async function abort() {
@@ -532,9 +602,20 @@ async function abort() {
 }
 
 function handleExecutionStarted({ total }) {
+  preparing.value = false
   running.value = true
   executionDone.value = false
   progress.value = { current: 0, total, percentage: 0 }
+}
+
+function handleExecutionPreparing({ message }) {
+  preparing.value = true
+  preparingMsg.value = message
+}
+
+function handleExecutionPrepareFailed({ error }) {
+  preparing.value = false
+  runError.value = error
 }
 
 function handleTestStarted({ id }) {
@@ -582,11 +663,14 @@ watch([folderExpanded, fileExpanded], () => {
   lsSave('exp', { folders: folderExpanded.value, files: fileExpanded.value })
 }, { deep: true })
 
+
 onMounted(async () => {
   const cfgRes = await fetch('/api/config')
   const cfg = await cfgRes.json()
   hasConfig.value = !!(cfg.projectPath)
   projectPath.value = cfg.projectPath || ''
+  seleniumRemoteUrl.value = cfg.seleniumRemoteUrl || ''
+  useDocker.value = !!cfg.seleniumRemoteUrl   // por defecto activo si hay grid configurado
 
   if (cfg.projectPath) {
     // ── Restore from cached collection (no pytest re-run needed) ──
@@ -609,6 +693,15 @@ onMounted(async () => {
       if (savedExp.folders) folderExpanded.value = savedExp.folders
       if (savedExp.files)   fileExpanded.value   = savedExp.files
     }
+
+    // ── Restore modo enfoque + set congelado ──
+    if (lsLoad('onlysel', false)) {
+      const ids = lsLoad('focus', [])
+      if (ids.length) {
+        focusedIds.value = new Set(ids)
+        showOnlySelected.value = true
+      }
+    }
   }
 
   // Check if execution was already running (e.g. page refresh mid-run)
@@ -617,6 +710,8 @@ onMounted(async () => {
   running.value = status.running
 
   socket.on('execution:started', handleExecutionStarted)
+  socket.on('execution:preparing', handleExecutionPreparing)
+  socket.on('execution:prepare-failed', handleExecutionPrepareFailed)
   socket.on('test:started', handleTestStarted)
   socket.on('test:completed', handleTestCompleted)
   socket.on('progress', handleProgress)
@@ -626,6 +721,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   socket.off('execution:started', handleExecutionStarted)
+  socket.off('execution:preparing', handleExecutionPreparing)
+  socket.off('execution:prepare-failed', handleExecutionPrepareFailed)
   socket.off('test:started', handleTestStarted)
   socket.off('test:completed', handleTestCompleted)
   socket.off('progress', handleProgress)

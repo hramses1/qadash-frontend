@@ -5,7 +5,7 @@
         type="checkbox"
         :checked="allSelected"
         :indeterminate.prop="someSelected"
-        @change.stop="$emit('toggle-file', { fileIdx })"
+        @change.stop="$emit('toggle-file', { name: file.name })"
         @click.stop
       />
       <span class="file-chevron" :class="{ open: expanded }">▸</span>
@@ -14,14 +14,14 @@
       <span class="file-count">{{ file.tests.length }}</span>
       <button
         class="btn-edit-file"
-        @click.stop="$emit('edit-file', { fileIdx, file })"
+        @click.stop="$emit('edit-file', { file })"
         title="Editar archivo"
       >✏️</button>
     </div>
 
     <div v-show="expanded" class="file-tests">
       <div
-        v-for="(test, testIdx) in file.tests"
+        v-for="test in file.tests"
         :key="test.id"
         class="test-row"
         :class="rowClass(test.id)"
@@ -29,7 +29,7 @@
         <input
           type="checkbox"
           :checked="test.selected"
-          @change="$emit('toggle', { fileIdx, testIdx })"
+          @change="$emit('toggle', { id: test.id })"
         />
         <span class="test-name">{{ shortName(test.id) }}</span>
         <ResultBadge
@@ -47,7 +47,6 @@ import ResultBadge from './ResultBadge.vue'
 
 const props = defineProps({
   file: { type: Object, required: true },
-  fileIdx: { type: Number, required: true },
   testStatuses: { type: Object, default: () => ({}) }
 })
 
