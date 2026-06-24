@@ -24,7 +24,7 @@
           <button
             v-else
             class="btn btn-primary"
-            @click="showRunModal = true"
+            @click="openRunModal"
             :disabled="selectedCount === 0 || collecting"
           >
             ▶ Ejecutar ({{ selectedCount }})
@@ -207,15 +207,20 @@
   <!-- Run confirmation modal -->
   <Teleport to="body">
     <div v-if="showRunModal" class="modal-backdrop" @click.self="showRunModal = false">
-      <div class="modal modal-sm">
+      <div class="modal run-modal">
         <div class="modal-header">
           <h3 class="modal-title">▶ Ejecutar tests</h3>
           <button class="btn-icon" @click="showRunModal = false">✕</button>
         </div>
-        <div class="modal-body">
-          <p class="run-modal-desc">
-            <strong>{{ selectedCount }}</strong> test{{ selectedCount !== 1 ? 's' : '' }} seleccionado{{ selectedCount !== 1 ? 's' : '' }}
-          </p>
+        <div class="modal-body run-modal-body">
+          <div class="run-summary">
+            <span class="run-summary-num">{{ selectedCount }}</span>
+            <span class="run-summary-txt">
+              test{{ selectedCount !== 1 ? 's' : '' }} seleccionado{{ selectedCount !== 1 ? 's' : '' }}
+              <template v-if="runRepeat > 1"> · {{ selectedCount * runRepeat }} ejecuciones</template>
+            </span>
+          </div>
+
           <div class="run-modal-field">
             <label class="run-modal-label">Número de veces a ejecutar</label>
             <input
@@ -227,9 +232,77 @@
               @keyup.enter="confirmRun"
             />
           </div>
-          <p class="run-modal-total" v-if="runRepeat > 1">
-            Total: {{ selectedCount * runRepeat }} ejecuciones
-          </p>
+
+          <datalist id="env-keys">
+            <option v-for="k in envKeys" :key="k" :value="k" />
+          </datalist>
+
+          <!-- Parámetros globales (para todos) -->
+          <div class="param-section">
+            <div class="param-section-head">
+              <span class="run-modal-label">Parámetros para todos</span>
+              <span class="param-badge">opcional</span>
+            </div>
+            <p class="run-modal-hint param-hint">
+              Se aplican a todos los tests seleccionados. Vacío → valor del <code>.env</code>.
+            </p>
+
+            <div v-if="runParams.length" class="param-list">
+              <div v-for="(row, i) in runParams" :key="i" class="param-row">
+                <input v-model="row.key" list="env-keys" class="input param-key" placeholder="VARIABLE" />
+                <span class="param-eq">=</span>
+                <input
+                  v-model="row.value"
+                  class="input param-val"
+                  :placeholder="envMap[row.key] ? `.env: ${envMap[row.key]}` : 'valor del .env'"
+                  @keyup.enter="confirmRun"
+                />
+                <button class="param-del" @click="runParams.splice(i, 1)" title="Quitar">✕</button>
+              </div>
+            </div>
+            <p v-else class="param-empty">Sin parámetros — se usa el <code>.env</code>.</p>
+
+            <button class="param-add-btn" @click="addParam">＋ Agregar parámetro</button>
+          </div>
+
+          <!-- Parámetros por test (cuando hay más de uno) -->
+          <div v-if="selectedTestIds.length > 1" class="param-section">
+            <div class="param-section-head">
+              <div>
+                <span class="run-modal-label">Parámetros por test</span>
+                <span class="param-badge">opcional</span>
+              </div>
+            </div>
+            <p class="run-modal-hint param-hint">
+              Pisan a los de "para todos" y al <code>.env</code>, solo para ese test.
+            </p>
+
+            <div class="test-param-list">
+              <div v-for="id in selectedTestIds" :key="id" class="test-param-item">
+                <button class="test-param-head" @click="expandedTest = expandedTest === id ? null : id">
+                  <span class="tp-caret" :class="{ open: expandedTest === id }">▸</span>
+                  <span class="tp-name" :title="id">{{ shortName(id) }}</span>
+                  <span v-if="testParamCount(id)" class="tp-count">{{ testParamCount(id) }}</span>
+                </button>
+                <div v-show="expandedTest === id" class="test-param-body">
+                  <div class="param-list">
+                    <div v-for="(row, i) in paramsByTest[id] || []" :key="i" class="param-row">
+                      <input v-model="row.key" list="env-keys" class="input param-key" placeholder="VARIABLE" />
+                      <span class="param-eq">=</span>
+                      <input
+                        v-model="row.value"
+                        class="input param-val"
+                        :placeholder="envMap[row.key] ? `.env: ${envMap[row.key]}` : 'valor'"
+                      />
+                      <button class="param-del" @click="paramsByTest[id].splice(i, 1)" title="Quitar">✕</button>
+                    </div>
+                  </div>
+                  <button class="param-add-btn" @click="addTestParam(id)">＋ Agregar parámetro</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <label v-if="seleniumRemoteUrl" class="checkbox-label run-modal-docker">
             <input type="checkbox" v-model="useDocker" />
             🐳 Levantar Selenium en Docker antes de ejecutar
@@ -241,8 +314,8 @@
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showRunModal = false">Cancelar</button>
-          <button class="btn btn-primary" @click="confirmRun" :disabled="runRepeat < 1">
-            ▶ Ejecutar
+          <button class="btn btn-primary" @click="confirmRun" :disabled="runRepeat < 1 || selectedCount === 0">
+            ▶ Ejecutar {{ selectedCount }}
           </button>
         </div>
       </div>
@@ -272,6 +345,11 @@ const projectPath = ref('')
 const cacheTimestamp = ref(null)   // when last collection was done
 const showRunModal = ref(false)
 const runRepeat = ref(1)
+const runParams = ref([])      // [{ key, value }] overrides globales (para todos)
+const paramsByTest = ref({})   // testId -> [{ key, value }] overrides por test
+const expandedTest = ref(null) // qué test tiene el editor abierto
+const envMap = ref({})         // key -> valor del .env (placeholder)
+const envKeys = ref([])        // claves para el datalist
 const useDocker = ref(false)
 const seleniumRemoteUrl = ref('')
 const preparing = ref(false)
@@ -402,6 +480,9 @@ const totalTests = computed(() =>
 )
 const selectedCount = computed(() =>
   files.value.reduce((sum, f) => sum + f.tests.filter(t => t.selected).length, 0)
+)
+const selectedTestIds = computed(() =>
+  [...new Set(files.value.flatMap(f => f.tests.filter(t => t.selected).map(t => t.id)))]
 )
 const allSelected = computed(() =>
   totalTests.value > 0 && selectedCount.value === totalTests.value
@@ -563,6 +644,69 @@ async function collectTests() {
   }
 }
 
+async function fetchEnvVars() {
+  try {
+    const res = await fetch('/api/env')
+    const data = await res.json()
+    if (Array.isArray(data.vars)) {
+      const map = {}
+      data.vars.filter(v => !v.isComment && v.key).forEach(v => { map[v.key] = v.value })
+      envMap.value = map
+      envKeys.value = Object.keys(map)
+    }
+  } catch { /* .env opcional */ }
+}
+
+function openRunModal() {
+  // Sin parámetros por defecto: el usuario los agrega si los necesita.
+  if (envKeys.value.length === 0) fetchEnvVars()
+  // Limpia overrides por test que ya no estén seleccionados.
+  const valid = new Set(selectedTestIds.value)
+  for (const id of Object.keys(paramsByTest.value)) {
+    if (!valid.has(id)) delete paramsByTest.value[id]
+  }
+  showRunModal.value = true
+}
+
+function addParam() {
+  runParams.value.push({ key: '', value: '' })
+}
+
+function addTestParam(id) {
+  if (!paramsByTest.value[id]) paramsByTest.value[id] = []
+  paramsByTest.value[id].push({ key: '', value: '' })
+  expandedTest.value = id
+}
+
+function testParamCount(id) {
+  return (paramsByTest.value[id] || []).filter(r => (r.key || '').trim() && (r.value || '').trim()).length
+}
+
+function rowsToObj(rows) {
+  const out = {}
+  for (const r of rows || []) {
+    const k = (r.key || '').trim()
+    const v = (r.value || '').trim()
+    if (k && v) out[k] = v
+  }
+  return out
+}
+
+// Globales (para todos): solo clave+valor no vacíos.
+function collectParams() {
+  return rowsToObj(runParams.value)
+}
+
+// Por test: { testId: { KEY: val } } con solo overrides reales.
+function collectParamsByTest() {
+  const out = {}
+  for (const [id, rows] of Object.entries(paramsByTest.value)) {
+    const o = rowsToObj(rows)
+    if (Object.keys(o).length) out[id] = o
+  }
+  return out
+}
+
 function confirmRun() {
   showRunModal.value = false
   runSelected()
@@ -591,7 +735,12 @@ async function runSelected() {
   const res = await fetch('/api/tests/run', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ testIds: selected, useDocker: useDocker.value })
+    body: JSON.stringify({
+      testIds: selected,
+      useDocker: useDocker.value,
+      params: collectParams(),
+      paramsByTest: collectParamsByTest()
+    })
   })
   const data = await res.json()
   if (data.error) { runError.value = data.error; preparing.value = false }
