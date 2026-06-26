@@ -1256,6 +1256,29 @@ input[type="checkbox"] {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* ─── Reporte: agrupación por módulo ─────────────── */
+.module-group {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  background: white;
+}
+.module-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: #f8fafc;
+  user-select: none;
+}
+.module-header:hover { background: #f1f5f9; }
+.module-caret { color: #94a3b8; font-size: 11px; width: 12px; }
+.module-name { font-weight: 600; color: #1e293b; font-size: 13px; flex: 1; }
+.module-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.module-tests { padding: 6px 8px 8px; }
+
 /* ─── Print / PDF (analytics window.print()) ────── */
 @media print {
   .sidebar         { display: none !important; }
