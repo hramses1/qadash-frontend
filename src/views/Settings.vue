@@ -86,6 +86,29 @@
       </div>
     </div>
 
+    <!-- ── Entorno Virtual (Python) ── -->
+    <div class="card">
+      <h2 class="card-title">Entorno Virtual (Python)</h2>
+      <p class="hint-text">
+        Prepara el entorno del proyecto configurado: instala <code>virtualenv</code> si falta,
+        crea el entorno virtual <code>venv</code> y luego instala las dependencias de
+        <code>requirements.txt</code>.
+      </p>
+      <div class="form-actions">
+        <button
+          class="btn btn-primary"
+          @click="openEnvModal"
+          :disabled="!form.projectPath"
+          title="Crear venv e instalar dependencias del proyecto"
+        >
+          🐍 Preparar entorno
+        </button>
+      </div>
+      <div v-if="!form.projectPath" class="hint" style="margin-top:.5rem">
+        Configura primero la ruta del proyecto.
+      </div>
+    </div>
+
     <!-- ── Instalación de Automatización ── -->
     <div class="card">
       <button class="card-toggle" @click="showInstall = !showInstall" :aria-expanded="showInstall">
@@ -401,6 +424,100 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- ── Modal: Preparar Entorno Virtual ── -->
+    <Teleport to="body">
+      <div v-if="showEnvModal" class="modal-overlay" @click.self="closeEnvModal">
+        <div class="modal-box">
+
+          <div class="modal-header">
+            <h3 class="modal-title">
+              <template v-if="envPhase === 'intro'">🐍 Preparar entorno virtual</template>
+              <template v-else-if="envPhase === 'venv-running'">⚙️ Creando entorno...</template>
+              <template v-else-if="envPhase === 'venv-done'">✅ Entorno creado</template>
+              <template v-else-if="envPhase === 'deps-running'">⚙️ Instalando dependencias...</template>
+              <template v-else-if="envPhase === 'done'">✅ Entorno listo</template>
+              <template v-else-if="envPhase === 'error'">❌ Error</template>
+            </h3>
+            <button class="btn-icon" @click="closeEnvModal" :disabled="envRunning">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <!-- Intro -->
+            <template v-if="envPhase === 'intro'">
+              <div class="confirm-details">
+                <div class="detail-row">
+                  <span class="detail-label">Proyecto</span>
+                  <span class="detail-value">{{ form.projectPath }}</span>
+                </div>
+              </div>
+              <p class="hint-text">
+                Paso 1 — se instalará <code>virtualenv</code> (si falta) y se creará el
+                entorno <code>venv</code>. Luego podrás instalar las dependencias.
+              </p>
+            </template>
+
+            <!-- Running / done / error -->
+            <template v-else>
+              <div class="progress-section">
+                <div class="progress-label">
+                  <span>{{ envProgress.label }}</span>
+                  <span class="progress-pct">{{ envProgress.percent }}%</span>
+                </div>
+                <div class="progress-track">
+                  <div
+                    class="progress-fill"
+                    :class="{
+                      'progress-active': envRunning,
+                      'progress-done': envPhase === 'done' || envPhase === 'venv-done',
+                      'progress-error': envPhase === 'error'
+                    }"
+                    :style="{ width: envProgress.percent + '%' }"
+                  ></div>
+                </div>
+              </div>
+
+              <div class="steps-row">
+                <div class="step-pill" :class="envStepClass('venv')">🐍 Entorno</div>
+                <div class="step-arrow">→</div>
+                <div class="step-pill" :class="envStepClass('deps')">📚 Dependencias</div>
+              </div>
+
+              <div v-if="envPhase === 'venv-done'" class="modal-info-note">
+                ✅ Entorno virtual listo. Continúa para instalar las dependencias de
+                <code>requirements.txt</code>.
+              </div>
+
+              <div class="install-log" ref="envLogContainer">
+                <div
+                  v-for="log in envLogs"
+                  :key="log.id"
+                  :class="['log-line', 'log-' + log.type]"
+                >{{ log.message }}</div>
+                <div v-if="envLogs.length === 0" class="log-line log-info">Iniciando...</div>
+              </div>
+            </template>
+          </div>
+
+          <div class="modal-footer">
+            <template v-if="envPhase === 'intro'">
+              <button class="btn btn-secondary" @click="closeEnvModal">Cancelar</button>
+              <button class="btn btn-primary" @click="startCreateVenv">✅ Crear entorno virtual</button>
+            </template>
+            <template v-else-if="envPhase === 'venv-done'">
+              <button class="btn btn-secondary" @click="closeEnvModal">Cerrar</button>
+              <button class="btn btn-primary" @click="startInstallDeps">📚 Instalar dependencias</button>
+            </template>
+            <template v-else>
+              <button class="btn btn-primary" @click="closeEnvModal" :disabled="envRunning">
+                {{ envRunning ? 'Procesando...' : 'Cerrar' }}
+              </button>
+            </template>
+          </div>
+
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -641,6 +758,106 @@ function updateStepClass(key) {
   if (cur === -1) return 'step-pending'
   return idx < cur ? 'step-done' : idx === cur ? 'step-active' : 'step-pending'
 }
+
+// ── Modal Entorno Virtual ──
+const showEnvModal = ref(false)
+const envPhase = ref('intro')  // intro | venv-running | venv-done | deps-running | done | error
+const envLogs = ref([])
+const envProgress = ref({ percent: 0, label: '' })
+const envError = ref('')
+const envLogContainer = ref(null)
+let envLogId = 0
+
+const envRunning = computed(() => envPhase.value === 'venv-running' || envPhase.value === 'deps-running')
+
+function envStepClass(key) {
+  if (key === 'venv') {
+    if (envPhase.value === 'venv-running') return 'step-active'
+    if (['venv-done', 'deps-running', 'done'].includes(envPhase.value)) return 'step-done'
+    return 'step-pending'
+  }
+  // deps
+  if (envPhase.value === 'deps-running') return 'step-active'
+  if (envPhase.value === 'done') return 'step-done'
+  return 'step-pending'
+}
+
+function openEnvModal() {
+  envPhase.value = 'intro'
+  envLogs.value = []
+  envProgress.value = { percent: 0, label: '' }
+  envError.value = ''
+  showEnvModal.value = true
+}
+
+function closeEnvModal() {
+  if (envRunning.value) return
+  showEnvModal.value = false
+}
+
+async function startCreateVenv() {
+  envPhase.value = 'venv-running'
+  envLogs.value = []
+  envProgress.value = { percent: 0, label: 'Iniciando...' }
+  envError.value = ''
+  try {
+    const res = await fetch('/api/automation/setup-venv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectPath: form.value.projectPath })
+    })
+    const data = await res.json()
+    if (data.error) { envError.value = data.error; envPhase.value = 'error' }
+  } catch (e) {
+    envError.value = e.message; envPhase.value = 'error'
+  }
+}
+
+async function startInstallDeps() {
+  envPhase.value = 'deps-running'
+  envLogs.value = []
+  envProgress.value = { percent: 0, label: 'Iniciando...' }
+  envError.value = ''
+  try {
+    const res = await fetch('/api/automation/setup-deps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectPath: form.value.projectPath })
+    })
+    const data = await res.json()
+    if (data.error) { envError.value = data.error; envPhase.value = 'error' }
+  } catch (e) {
+    envError.value = e.message; envPhase.value = 'error'
+  }
+}
+
+// Auto-scroll del log de entorno
+watch(envLogs, () => {
+  nextTick(() => {
+    if (envLogContainer.value) envLogContainer.value.scrollTop = envLogContainer.value.scrollHeight
+  })
+}, { deep: true })
+
+// Listeners de socket para el flujo de entorno virtual
+const { socket: envSocket } = useSocket()
+envSocket.on('env:log', ({ message, type }) => {
+  envLogs.value.push({ id: envLogId++, message, type: type || 'info' })
+})
+envSocket.on('env:progress', ({ percent, label }) => {
+  envProgress.value = { percent, label }
+})
+envSocket.on('env:venv-done', () => {
+  if (envPhase.value === 'venv-running') envPhase.value = 'venv-done'
+  checkInstallStatus()
+})
+envSocket.on('env:deps-done', () => {
+  if (envPhase.value === 'deps-running') envPhase.value = 'done'
+  checkInstallStatus()
+})
+envSocket.on('env:failed', ({ error: err }) => {
+  envError.value = err
+  envPhase.value = 'error'
+})
 </script>
 
 <style scoped>

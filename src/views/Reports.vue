@@ -78,7 +78,7 @@
               <span class="badge badge-passed">✅ {{ report.summary.passed }} passed</span>
               <span class="badge badge-failed">❌ {{ (report.summary.failed || 0) + (report.summary.errors || 0) }} failed</span>
               <span class="badge">{{ report.summary.total }} total</span>
-              <span class="badge">⏱ {{ report.summary.duration?.toFixed(1) }}s</span>
+              <span class="badge">⏱ {{ formatDurationLong(report.summary.duration) }}</span>
             </div>
           </div>
         </div>
@@ -99,19 +99,34 @@
           <div class="stat-card"><div class="stat-num">{{ selectedReport.summary.total }}</div><div class="stat-label">Total</div></div>
           <div class="stat-card passed"><div class="stat-num">{{ selectedReport.summary.passed }}</div><div class="stat-label">Pasaron</div></div>
           <div class="stat-card failed"><div class="stat-num">{{ (selectedReport.summary.failed || 0) + (selectedReport.summary.errors || 0) }}</div><div class="stat-label">Fallaron</div></div>
-          <div class="stat-card"><div class="stat-num">{{ selectedReport.summary.duration?.toFixed(1) }}s</div><div class="stat-label">Duración</div></div>
+          <div class="stat-card"><div class="stat-num">{{ formatDuration(selectedReport.summary.duration) }}</div><div class="stat-label">Duración</div></div>
           <div class="stat-card"><div class="stat-num">{{ passRate }}%</div><div class="stat-label">Pass Rate</div></div>
         </div>
         <div class="tests-detail">
-          <div v-for="test in selectedReport.tests" :key="test.id" class="test-detail-row" :class="`status-${test.status}`">
-            <div class="test-detail-header" @click="test._expanded = !test._expanded">
-              <span class="test-status-icon">{{ test.status === 'passed' ? '✅' : test.status === 'failed' ? '❌' : '⚠️' }}</span>
-              <span class="test-detail-id">{{ test.id }}</span>
-              <span class="test-duration">{{ test.duration?.toFixed(2) }}s</span>
-              <span class="expand-icon" v-if="test.errorMsg || test.output">{{ test._expanded ? '▾' : '▸' }}</span>
+          <div v-for="mod in testModules" :key="mod.key" class="module-group">
+            <div class="module-header" @click="toggleModule(mod.key)">
+              <span class="module-caret">{{ expandedModules.has(mod.key) ? '▾' : '▸' }}</span>
+              <span class="module-name">📦 {{ mod.name }}</span>
+              <span class="module-badges">
+                <span class="badge badge-passed">✅ {{ mod.passed }}</span>
+                <span v-if="mod.failed" class="badge badge-failed">❌ {{ mod.failed }}</span>
+                <span class="badge">{{ mod.tests.length }} test{{ mod.tests.length !== 1 ? 's' : '' }}</span>
+                <span class="badge">⏱ {{ formatDuration(mod.duration) }}</span>
+              </span>
             </div>
-            <div v-if="test._expanded && (test.errorMsg || test.output)" class="test-output">
-              <pre>{{ test.errorMsg || test.output }}</pre>
+
+            <div v-show="expandedModules.has(mod.key)" class="module-tests">
+              <div v-for="test in mod.tests" :key="test.id" class="test-detail-row" :class="`status-${test.status}`">
+                <div class="test-detail-header" @click="test._expanded = !test._expanded">
+                  <span class="test-status-icon">{{ test.status === 'passed' ? '✅' : test.status === 'failed' ? '❌' : '⚠️' }}</span>
+                  <span class="test-detail-id">{{ test.id }}</span>
+                  <span class="test-duration">{{ formatDuration(test.duration) }}</span>
+                  <span class="expand-icon" v-if="test.errorMsg || test.output">{{ test._expanded ? '▾' : '▸' }}</span>
+                </div>
+                <div v-if="test._expanded && (test.errorMsg || test.output)" class="test-output">
+                  <pre>{{ test.errorMsg || test.output }}</pre>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -169,7 +184,7 @@
             <div class="an-stat-label">{{ stats.totalAvailable ? 'Pasaron del total' : 'Pass rate' }}</div>
           </div>
           <div class="an-stat-card">
-            <div class="an-stat-num">{{ stats.avgDuration.toFixed(1) }}s</div>
+            <div class="an-stat-num">{{ formatDuration(stats.avgDuration) }}</div>
             <div class="an-stat-label">Duración prom.</div>
           </div>
         </div>
@@ -392,7 +407,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 // ── Tab state ─────────────────────────────────────────────────────────────────
 const activeTab = ref('list')
@@ -551,6 +566,48 @@ const passRate = computed(() => {
   return total > 0 ? Math.round((passed / total) * 100) : 0
 })
 
+// ── Agrupación por módulo (archivo de test) ───────────────────────────────────
+// Clave de módulo = ruta del archivo (lo anterior a "::").
+function moduleKey(id) {
+  return String(id).split('::')[0]
+}
+// Etiqueta legible: "…/test_pago_tercero.py" => "Pago Tercero".
+function moduleLabel(key) {
+  const base = key.split(/[\\/]/).pop().replace(/\.py$/, '').replace(/^test_/, '')
+  return base.split('_').filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ') || key
+}
+
+const testModules = computed(() => {
+  const r = selectedReport.value
+  if (!r || !r.tests) return []
+  const map = new Map()
+  for (const t of r.tests) {
+    const key = moduleKey(t.id)
+    if (!map.has(key)) {
+      map.set(key, { key, name: moduleLabel(key), tests: [], duration: 0, passed: 0, failed: 0 })
+    }
+    const g = map.get(key)
+    g.tests.push(t)
+    g.duration += t.duration || 0
+    if (t.status === 'passed') g.passed++
+    else g.failed++
+  }
+  return [...map.values()]
+})
+
+const expandedModules = ref(new Set())
+function toggleModule(key) {
+  const s = new Set(expandedModules.value)
+  s.has(key) ? s.delete(key) : s.add(key)
+  expandedModules.value = s
+}
+// Al abrir un reporte, expandir todos sus módulos por defecto.
+watch(selectedReport, () => {
+  expandedModules.value = new Set(testModules.value.map(m => m.key))
+})
+
 async function loadReports() {
   try {
     const res = await fetch('/api/reports')
@@ -609,6 +666,36 @@ function formatDate(iso) {
   })
 }
 
+// Detalle/módulos/PDF: <1min => "6s"; >=1min => "7m:3s".
+function formatDuration(totalSeconds) {
+  if (totalSeconds == null) return '—'
+  if (totalSeconds < 60) {
+    const s = Math.round(totalSeconds * 10) / 10
+    return `${Number.isInteger(s) ? s : s.toFixed(1)}s`
+  }
+  const total = Math.round(totalSeconds)
+  const hrs = Math.floor(total / 3600)
+  const min = Math.floor((total % 3600) / 60)
+  const sec = total % 60
+  if (hrs > 0) return `${hrs}h:${min}m:${sec}s`
+  return `${min}m:${sec}s`
+}
+
+// Lista de reportes: forma textual "4 minutos y 6 segundos".
+function formatDurationLong(totalSeconds) {
+  if (totalSeconds == null) return '—'
+  if (totalSeconds < 60) {
+    const s = Math.round(totalSeconds * 10) / 10
+    return `${Number.isInteger(s) ? s : s.toFixed(1)}s`
+  }
+  const total = Math.round(totalSeconds)
+  const min = Math.floor(total / 60)
+  const sec = total % 60
+  const minLabel = `${min} ${min === 1 ? 'minuto' : 'minutos'}`
+  if (sec === 0) return minLabel
+  return `${minLabel} y ${sec} ${sec === 1 ? 'segundo' : 'segundos'}`
+}
+
 // ── PDF export ────────────────────────────────────────────────────────────────
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -622,17 +709,21 @@ function printReportPDF() {
   const rateCol = rate >= 90 ? '#16a34a' : rate >= 60 ? '#d97706' : '#dc2626'
   const now     = new Date().toLocaleString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-  const testsRows = r.tests.map(t => {
-    const icon   = t.status === 'passed' ? '✅' : t.status === 'failed' ? '❌' : '⚠️'
-    const rowBg  = t.status === 'failed' ? 'background:#fff5f5' : ''
-    const errRow = t.errorMsg
-      ? `<tr><td colspan="3" style="background:#fff5f5;padding:0 10px 8px"><pre style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:0 4px 4px 0;padding:8px 10px;font-size:11px;font-family:Consolas,monospace;white-space:pre-wrap;color:#991b1b;margin:0">${esc(t.errorMsg)}</pre></td></tr>`
-      : ''
-    return `<tr style="${rowBg}">
-      <td style="width:32px;font-size:15px;padding:7px 8px">${icon}</td>
-      <td style="font-family:Consolas,monospace;font-size:12px;word-break:break-all;padding:7px 8px">${esc(t.id)}</td>
-      <td style="text-align:right;width:72px;color:#64748b;white-space:nowrap;padding:7px 8px">${t.duration != null ? t.duration.toFixed(2) + 's' : '—'}</td>
-    </tr>${errRow}`
+  const testsRows = testModules.value.map(mod => {
+    const modHead = `<tr><td colspan="3" style="background:#eef2ff;padding:8px 10px;font-weight:700;font-size:12px;color:#1e293b">📦 ${esc(mod.name)} &nbsp;·&nbsp; ✅ ${mod.passed}${mod.failed ? ' · ❌ ' + mod.failed : ''} · ${mod.tests.length} test${mod.tests.length !== 1 ? 's' : ''} · ⏱ ${formatDuration(mod.duration)}</td></tr>`
+    const rows = mod.tests.map(t => {
+      const icon   = t.status === 'passed' ? '✅' : t.status === 'failed' ? '❌' : '⚠️'
+      const rowBg  = t.status === 'failed' ? 'background:#fff5f5' : ''
+      const errRow = t.errorMsg
+        ? `<tr><td colspan="3" style="background:#fff5f5;padding:0 10px 8px"><pre style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:0 4px 4px 0;padding:8px 10px;font-size:11px;font-family:Consolas,monospace;white-space:pre-wrap;color:#991b1b;margin:0">${esc(t.errorMsg)}</pre></td></tr>`
+        : ''
+      return `<tr style="${rowBg}">
+        <td style="width:32px;font-size:15px;padding:7px 8px">${icon}</td>
+        <td style="font-family:Consolas,monospace;font-size:12px;word-break:break-all;padding:7px 8px">${esc(t.id)}</td>
+        <td style="text-align:right;width:120px;color:#64748b;white-space:nowrap;padding:7px 8px">${formatDuration(t.duration)}</td>
+      </tr>${errRow}`
+    }).join('')
+    return modHead + rows
   }).join('')
 
   const html = `<!DOCTYPE html>
@@ -662,7 +753,7 @@ td{border-bottom:1px solid #f1f5f9;vertical-align:top}
   <div class="card"><div class="num">${r.summary.total}</div><div class="lbl">Total</div></div>
   <div class="card"><div class="num" style="color:#16a34a">${r.summary.passed}</div><div class="lbl">Pasaron</div></div>
   <div class="card"><div class="num" style="color:${failed > 0 ? '#dc2626' : '#16a34a'}">${failed}</div><div class="lbl">Fallaron</div></div>
-  <div class="card"><div class="num">${r.summary.duration != null ? r.summary.duration.toFixed(1) + 's' : '—'}</div><div class="lbl">Duración</div></div>
+  <div class="card"><div class="num">${formatDuration(r.summary.duration)}</div><div class="lbl">Duración</div></div>
   <div class="card"><div class="num" style="color:${rateCol}">${rate}%</div><div class="lbl">Pass Rate</div></div>
 </div>
 <div class="sec">Detalle de Tests (${r.tests.length})</div>
