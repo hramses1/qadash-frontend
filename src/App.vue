@@ -30,9 +30,21 @@
           </RouterLink>
         </li>
         <li>
+          <RouterLink to="/imagenes-error" class="nav-link">
+            <span class="nav-icon">🖼️</span>
+            <span>Imágenes de error</span>
+          </RouterLink>
+        </li>
+        <li>
           <RouterLink to="/docker" class="nav-link">
             <span class="nav-icon">🐳</span>
             <span>Docker</span>
+          </RouterLink>
+        </li>
+        <li>
+          <RouterLink to="/calendarizacion" class="nav-link">
+            <span class="nav-icon">🗓️</span>
+            <span>Calendarización</span>
           </RouterLink>
         </li>
         <li>
