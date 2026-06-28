@@ -68,6 +68,18 @@
         </small>
       </div>
 
+      <div class="form-group">
+        <label>Carpeta de imágenes de error</label>
+        <div class="input-browse-row">
+          <input v-model="form.errorImagesPath" type="text" class="input" placeholder="(por defecto: proyecto\reports\errors)" />
+          <button class="btn-browse" @click="browse('folder', 'errorImagesPath')" :disabled="browsing" title="Seleccionar carpeta">📁</button>
+        </div>
+        <small class="hint">
+          Capturas de pantalla de fallos. Vacío → <code>proyecto\reports\errors</code>.
+          Se ven en <RouterLink to="/imagenes-error">Imágenes de error</RouterLink>.
+        </small>
+      </div>
+
       <div class="form-actions">
         <button class="btn btn-secondary" @click="validate" :disabled="validating || !form.projectPath">
           {{ validating ? 'Validando...' : '🔍 Validar ruta' }}
@@ -527,7 +539,7 @@ import { useSocket } from '../composables/useSocket'
 import { useAutomationState } from '../composables/useAutomationState'
 
 // ── Config principal ──
-const form = ref({ projectPath: '', envPath: '', pytestCmd: 'pytest', txtFolderPath: '', seleniumRemoteUrl: '' })
+const form = ref({ projectPath: '', envPath: '', pytestCmd: 'pytest', txtFolderPath: '', seleniumRemoteUrl: '', errorImagesPath: '' })
 const saving = ref(false)
 const validating = ref(false)
 const browsing = ref(false)
@@ -579,6 +591,7 @@ async function browse(type, target) {
     const currentVal = target === 'projectPath' ? form.value.projectPath
       : target === 'envPath' ? form.value.envPath
       : target === 'txtFolderPath' ? form.value.txtFolderPath
+      : target === 'errorImagesPath' ? form.value.errorImagesPath
       : autoConfig.value.installPath
     const params = new URLSearchParams({ type })
     if (currentVal) params.set('startPath', currentVal)
@@ -588,6 +601,7 @@ async function browse(type, target) {
       if (target === 'projectPath') form.value.projectPath = data.path
       else if (target === 'envPath') form.value.envPath = data.path
       else if (target === 'txtFolderPath') form.value.txtFolderPath = data.path
+      else if (target === 'errorImagesPath') form.value.errorImagesPath = data.path
       else if (target === 'installPath') autoConfig.value.installPath = data.path
     }
   } catch (e) {
@@ -606,7 +620,8 @@ onMounted(async () => {
       envPath: data.envPath || '',
       pytestCmd: data.pytestCmd || '.\\venv\\Scripts\\pytest.exe',
       txtFolderPath: data.txtFolderPath || '',
-      seleniumRemoteUrl: data.seleniumRemoteUrl || ''
+      seleniumRemoteUrl: data.seleniumRemoteUrl || '',
+      errorImagesPath: data.errorImagesPath || ''
     }
     // Auto-detecta .env si hay proyecto pero no ruta .env guardada
     if (form.value.projectPath && !form.value.envPath) detectEnv(true)

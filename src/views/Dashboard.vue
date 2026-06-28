@@ -307,10 +307,6 @@
             <input type="checkbox" v-model="useDocker" />
             🐳 Levantar Selenium en Docker antes de ejecutar
           </label>
-          <p v-if="seleniumRemoteUrl && useDocker" class="run-modal-hint">
-            Grid: <code>{{ seleniumRemoteUrl }}</code> · navegador en vivo:
-            <a href="http://localhost:7900" target="_blank" rel="noopener">localhost:7900</a> (pass: secret)
-          </p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showRunModal = false">Cancelar</button>

@@ -9,6 +9,8 @@ import Reports from './views/Reports.vue'
 import Settings from './views/Settings.vue'
 import TxtData from './views/TxtData.vue'
 import Docker from './views/Docker.vue'
+import Schedules from './views/Schedules.vue'
+import ErrorImages from './views/ErrorImages.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,6 +21,8 @@ const router = createRouter({
     { path: '/reports', component: Reports },
     { path: '/datos-txt', component: TxtData },
     { path: '/docker', component: Docker },
+    { path: '/calendarizacion', component: Schedules },
+    { path: '/imagenes-error', component: ErrorImages },
     { path: '/settings', component: Settings }
   ]
 })

@@ -88,6 +88,27 @@ export function useTxtData() {
     return [...set].sort((a, b) => a.localeCompare(b))
   })
 
+  // ── Archivos con error / vacíos ──
+  // Marcador de comprobantes ilegibles (dump HTML). Esos archivos se ocultan.
+  const ERROR_RE = /no se pudo leer el comprobante|revisar dump html/i
+
+  // Set de archivos cuyo contenido indica error de lectura.
+  const erroredFiles = computed(() => {
+    const set = new Set()
+    for (const r of rows.value) {
+      if (set.has(r._archivo)) continue
+      for (const c of columns.value) {
+        if (c === '_archivo' || c === '_linea') continue
+        if (ERROR_RE.test(String(r[c] ?? ''))) { set.add(r._archivo); break }
+      }
+    }
+    return set
+  })
+  const erroredCount = computed(() => erroredFiles.value.size)
+
+  // Mostrar/ocultar los archivos con error (oculto por defecto).
+  const showErrored = ref(false)
+
   const hasFilters = computed(() =>
     !!fileFilter.value ||
     !!search.value.trim() ||
@@ -99,6 +120,10 @@ export function useTxtData() {
   // El Excel se exporta exactamente desde aquí, así que descarga = lo filtrado.
   const visibleRows = computed(() => {
     let out = rows.value
+    // Oculta archivos con error salvo que se pidan explícitamente.
+    if (!showErrored.value && erroredFiles.value.size) {
+      out = out.filter(r => !erroredFiles.value.has(r._archivo))
+    }
     if (fileFilter.value) {
       out = out.filter(r => r._archivo === fileFilter.value)
     }
@@ -123,12 +148,24 @@ export function useTxtData() {
     return out
   })
 
+  // Columnas a mostrar: solo las que tienen algún valor en las filas visibles.
+  // Así, al ocultar los archivos con error desaparecen sus columnas (_linea,
+  // contenido) que ensucian la tabla; al mostrarlos, vuelven a aparecer.
+  const visibleColumns = computed(() => {
+    const rowsV = visibleRows.value
+    return columns.value.filter(c => {
+      if (c === '_archivo') return true
+      return rowsV.some(r => String(r[c] ?? '').trim() !== '')
+    })
+  })
+
   function clearFilters() {
     fileFilter.value = ''
     search.value = ''
     company.value = ''
     dateFrom.value = ''
     dateTo.value = ''
+    showErrored.value = false
   }
 
   // Autoselecciona la primera columna de fecha (prioriza "ingreso"/"fecha")
@@ -169,10 +206,10 @@ export function useTxtData() {
   async function downloadExcel() {
     if (visibleRows.value.length === 0) return
     const XLSX = await import('xlsx')
-    // Omite columnas de origen (_archivo/_linea) si se unen archivos
+    // Exporta las columnas visibles; omite origen (_archivo/_linea) al unir.
     const exportCols = mergeFiles.value
-      ? columns.value.filter(c => !META_COLS.includes(c))
-      : columns.value
+      ? visibleColumns.value.filter(c => !META_COLS.includes(c))
+      : visibleColumns.value
     const header = exportCols.map(prettyCol)
     const body = visibleRows.value.map(r => exportCols.map(c => r[c]))
     const ws = XLSX.utils.aoa_to_sheet([header, ...body])
@@ -188,8 +225,10 @@ export function useTxtData() {
     loading, configured, error, folder, fileCount, columns, rows, parseErrors, files,
     // filtros
     mergeFiles, fileFilter, search, dateColumn, dateFrom, dateTo, company,
+    showErrored,
     // derivados
-    dateColumns, companyColumn, companyValues, hasFilters, visibleRows,
+    dateColumns, companyColumn, companyValues, hasFilters, visibleRows, visibleColumns,
+    erroredFiles, erroredCount,
     // acciones
     prettyCol, clearFilters, load, downloadExcel
   }
