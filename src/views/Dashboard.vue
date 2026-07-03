@@ -20,6 +20,17 @@
           <span class="selection-count" v-if="totalTests > 0">
             {{ selectedCount }} / {{ totalTests }} seleccionados
           </span>
+          <button
+            v-if="notifSupported"
+            class="btn btn-secondary btn-notif"
+            :class="{ 'btn-notif-on': notifEnabled }"
+            @click="toggleNotifications"
+            :title="notifPermission === 'denied'
+              ? 'Notificaciones bloqueadas por el navegador'
+              : (notifEnabled ? 'Notificaciones activadas — clic para desactivar' : 'Activar notificaciones de escritorio')"
+          >
+            {{ notifEnabled ? '🔔' : '🔕' }}
+          </button>
           <button class="btn btn-danger" v-if="running" @click="abort">⏹ Abortar</button>
           <button
             v-else
@@ -162,6 +173,22 @@
       </div>
     </template>
   </div>
+
+  <!-- Toasts de notificación -->
+  <Teleport to="body">
+    <div class="toast-host">
+      <div
+        v-for="t in toasts"
+        :key="t.id"
+        class="toast"
+        :class="'toast-' + t.type"
+        @click="dismissToast(t.id)"
+      >
+        <div class="toast-title">{{ t.title }}</div>
+        <div v-if="t.body" class="toast-body">{{ t.body }}</div>
+      </div>
+    </div>
+  </Teleport>
 
   <!-- Code editor modal -->
   <Teleport to="body">
@@ -332,8 +359,10 @@ import FolderNode from '../components/FolderNode.vue'
 import ProgressBar from '../components/ProgressBar.vue'
 import CodeEditor from '../components/CodeEditor.vue'
 import { useSocket } from '../composables/useSocket'
+import { useNotifications } from '../composables/useNotifications'
 
 const { socket } = useSocket()
+const { enabled: notifEnabled, permission: notifPermission, supported: notifSupported, toggle: toggleNotifications, notify, toasts, dismissToast } = useNotifications()
 
 const files = ref([])
 const hasConfig = ref(false)
@@ -770,6 +799,16 @@ function handleTestStarted({ id }) {
 function handleTestCompleted({ id, status, duration, errorMsg }) {
   testStatuses.value = { ...testStatuses.value, [id]: { status, duration, errorMsg } }
   executionLog.value = [...executionLog.value, { id, status, duration, errorMsg }]
+
+  // Notificación por test terminado con su estado
+  const icon = status === 'passed' ? '✅' : status === 'error' ? '⚠️' : '❌'
+  const label = status === 'passed' ? 'PASÓ' : status === 'error' ? 'ERROR' : 'FALLÓ'
+  notify(`${icon} Test ${label}`, {
+    body: shortName(id),
+    type: status,
+    tag: 'test-' + id,        // reemplaza notif previa del mismo test
+    silent: status === 'passed'
+  })
 }
 
 function handleProgress(p) {
@@ -781,10 +820,23 @@ function handleExecutionCompleted({ reportId, summary }) {
   executionDone.value = true
   lastSummary.value = summary
   progress.value = { ...progress.value, percentage: 100 }
+
+  // Notificación al terminar toda la ejecución con el resumen
+  const failed = (summary.failed || 0) + (summary.errors || 0)
+  notify(
+    failed > 0 ? `❌ Ejecución terminada — ${failed} fallaron` : '✅ Ejecución terminada — todo pasó',
+    {
+      body: `${summary.passed}/${summary.total} pasaron · ${failed} fallaron`,
+      type: failed > 0 ? 'failed' : 'passed',
+      tag: 'execution-done',
+      requireInteraction: failed > 0   // si hay fallos, la notif no se auto-descarta
+    }
+  )
 }
 
 function handleExecutionAborted() {
   running.value = false
+  notify('⏹ Ejecución abortada', { body: 'La ejecución de tests fue detenida.', type: 'info', tag: 'execution-done' })
 }
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
