@@ -235,6 +235,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { apiFetch } from '../composables/apiFetch.js'
 import { useSchedules } from '../composables/useSchedules'
 
 defineOptions({ name: 'Schedules' })
@@ -327,7 +328,7 @@ function blankForm() {
 
 async function fetchEnvVars() {
   try {
-    const res = await fetch('/api/env')
+    const res = await apiFetch('/api/env')
     const data = await res.json()
     if (Array.isArray(data.vars)) {
       const map = {}
@@ -340,7 +341,7 @@ async function fetchEnvVars() {
 
 async function loadTests() {
   try {
-    const res = await fetch('/api/tests/cached')
+    const res = await apiFetch('/api/tests/cached')
     const data = await res.json()
     testGroups.value = Object.entries(data.files || {}).map(([name, tests]) => ({ name, tests }))
   } catch { testGroups.value = [] }

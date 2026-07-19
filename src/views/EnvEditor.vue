@@ -203,6 +203,7 @@
 
 <script setup>
 import { ref, nextTick, onMounted } from 'vue'
+import { apiFetch } from '../composables/apiFetch.js'
 
 const projectPath = ref('')
 const envFiles = ref([])
@@ -270,7 +271,7 @@ function closeModal() {
 async function saveModalProfile() {
   if (!modalProfile.value) return
   modalSaving.value = true
-  await fetch(`/api/profiles/${encodeURIComponent(modalProfile.value.name)}`, {
+  await apiFetch(`/api/profiles/${encodeURIComponent(modalProfile.value.name)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ vars: modalVars.value.filter(v => v.key) })
@@ -291,7 +292,7 @@ function applyModalToEditor() {
 }
 
 async function loadFiles() {
-  const res = await fetch('/api/env/files')
+  const res = await apiFetch('/api/env/files')
   const data = await res.json()
   envFiles.value = data.files || []
   if (envFiles.value.length > 0 && !selectedFile.value) {
@@ -305,7 +306,7 @@ async function load() {
   error.value = ''
   saveMsg.value = ''
   try {
-    const res = await fetch(`/api/env?file=${encodeURIComponent(selectedFile.value)}`)
+    const res = await apiFetch(`/api/env?file=${encodeURIComponent(selectedFile.value)}`)
     const data = await res.json()
     if (data.error) { error.value = data.error; return }
     fullPath.value = data.path
@@ -323,7 +324,7 @@ async function save() {
   saveMsg.value = ''
   error.value = ''
   try {
-    const res = await fetch(`/api/env?file=${encodeURIComponent(selectedFile.value)}`, {
+    const res = await apiFetch(`/api/env?file=${encodeURIComponent(selectedFile.value)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vars: editableVars.value })
@@ -360,7 +361,7 @@ async function commitRename(oldName) {
   renamingProfile.value = null
   const newName = renameValue.value.trim()
   if (!newName || newName === oldName) return
-  await fetch(`/api/profiles/${encodeURIComponent(oldName)}/rename`, {
+  await apiFetch(`/api/profiles/${encodeURIComponent(oldName)}/rename`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ newName })
@@ -370,14 +371,14 @@ async function commitRename(oldName) {
 }
 
 async function loadProfiles() {
-  const res = await fetch('/api/profiles')
+  const res = await apiFetch('/api/profiles')
   profiles.value = await res.json()
 }
 
 async function saveProfile() {
   const name = newProfileName.value.trim()
   if (!name || !editableVars.value.length) return
-  await fetch(`/api/profiles/${encodeURIComponent(name)}`, {
+  await apiFetch(`/api/profiles/${encodeURIComponent(name)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ vars: editableVars.value.filter(v => !v.isComment) })
@@ -389,7 +390,7 @@ async function saveProfile() {
 }
 
 async function overwriteProfile(name) {
-  await fetch(`/api/profiles/${encodeURIComponent(name)}`, {
+  await apiFetch(`/api/profiles/${encodeURIComponent(name)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ vars: editableVars.value.filter(v => !v.isComment) })
@@ -411,12 +412,12 @@ function applyProfile(name) {
 
 async function deleteProfile(name) {
   if (modalProfile.value?.name === name) closeModal()
-  await fetch(`/api/profiles/${encodeURIComponent(name)}`, { method: 'DELETE' })
+  await apiFetch(`/api/profiles/${encodeURIComponent(name)}`, { method: 'DELETE' })
   await loadProfiles()
 }
 
 onMounted(async () => {
-  const cfgRes = await fetch('/api/config')
+  const cfgRes = await apiFetch('/api/config')
   const cfg = await cfgRes.json()
   projectPath.value = cfg.projectPath || ''
   if (cfg.projectPath) {

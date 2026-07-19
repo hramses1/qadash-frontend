@@ -1,4 +1,5 @@
 import { ref, computed, watch } from 'vue'
+import { apiFetch } from './apiFetch.js';
 
 /**
  * Estado, filtros y exportación de la vista Datos TXT.
@@ -179,7 +180,7 @@ export function useTxtData() {
     loading.value = true
     error.value = ''
     try {
-      const res = await fetch('/api/txtdata')
+      const res = await apiFetch('/api/txtdata')
       const data = await res.json()
       configured.value = data.configured !== false
       if (data.error) {

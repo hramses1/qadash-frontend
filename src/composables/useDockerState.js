@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { apiFetch } from './apiFetch.js';
 import { useSocket } from './useSocket'
 
 // Singleton a nivel de módulo — persiste al navegar entre rutas.
@@ -36,7 +37,7 @@ function clearLogs() {
 
 async function checkDocker() {
   try {
-    const res = await fetch('/api/docker/check')
+    const res = await apiFetch('/api/docker/check')
     dockerCheck.value = await res.json()
   } catch (e) {
     dockerCheck.value = { ok: false, error: e.message }
@@ -45,7 +46,7 @@ async function checkDocker() {
 
 async function refreshStatus() {
   try {
-    const res = await fetch('/api/docker/status')
+    const res = await apiFetch('/api/docker/status')
     const data = await res.json()
     running.value = data.running
     currentAction.value = data.action
@@ -65,7 +66,7 @@ async function runAction(action) {
   running.value = true
   currentAction.value = action
   try {
-    const res = await fetch('/api/docker/run', {
+    const res = await apiFetch('/api/docker/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action })
@@ -82,7 +83,7 @@ async function inspectContainers() {
   inspecting.value = true
   containersError.value = ''
   try {
-    const res = await fetch('/api/docker/containers')
+    const res = await apiFetch('/api/docker/containers')
     const data = await res.json()
     if (data.ok) containers.value = data.containers
     else { containers.value = []; containersError.value = data.error || 'No se pudo listar contenedores' }
@@ -96,7 +97,7 @@ async function inspectContainers() {
 
 async function stopAction() {
   try {
-    await fetch('/api/docker/stop', { method: 'POST' })
+    await apiFetch('/api/docker/stop', { method: 'POST' })
   } catch (e) {
     error.value = e.message
   }

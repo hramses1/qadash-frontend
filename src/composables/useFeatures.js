@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { apiFetch } from './apiFetch.js';
 import { FEATURE_MAP } from './featureMap'
 
 const ALWAYS_ON = ['tests', 'config']
@@ -12,7 +13,7 @@ const flags = ref(defaults())
 
 async function loadFeatures() {
   try {
-    const res = await fetch('/api/features')
+    const res = await apiFetch('/api/features')
     const data = await res.json()
     flags.value = { ...defaults(), ...data }
   } catch {
@@ -21,7 +22,7 @@ async function loadFeatures() {
 }
 
 async function saveFeatures(newFlags) {
-  const res = await fetch('/api/features', {
+  const res = await apiFetch('/api/features', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(newFlags)

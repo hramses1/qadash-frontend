@@ -586,6 +586,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { apiFetch } from '../composables/apiFetch.js'
 import { useSocket } from '../composables/useSocket'
 import { useAutomationState } from '../composables/useAutomationState'
 import { FEATURE_MAP } from '../composables/featureMap'
@@ -647,7 +648,7 @@ async function detectEnv(silent = false) {
   if (!silent) envMsg.value = ''
   try {
     const params = new URLSearchParams({ projectPath: form.value.projectPath })
-    const res = await fetch(`/api/config/detect-env?${params}`)
+    const res = await apiFetch(`/api/config/detect-env?${params}`)
     const data = await res.json()
     if (data.path) {
       form.value.envPath = data.path
@@ -676,7 +677,7 @@ async function browse(type, target) {
       : autoConfig.value.installPath
     const params = new URLSearchParams({ type })
     if (currentVal) params.set('startPath', currentVal)
-    const res = await fetch(`/api/config/browse?${params}`)
+    const res = await apiFetch(`/api/config/browse?${params}`)
     const data = await res.json()
     if (data.path) {
       if (target === 'projectPath') form.value.projectPath = data.path
@@ -695,7 +696,7 @@ async function browse(type, target) {
 
 onMounted(async () => {
   try {
-    const res = await fetch('/api/config')
+    const res = await apiFetch('/api/config')
     const data = await res.json()
     form.value = {
       projectPath: data.projectPath || '',
@@ -735,7 +736,7 @@ async function validate() {
   validating.value = true
   validationResult.value = null
   try {
-    const res = await fetch('/api/config/validate', {
+    const res = await apiFetch('/api/config/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectPath: form.value.projectPath })
@@ -753,7 +754,7 @@ async function save() {
   saveMsg.value = ''
   error.value = ''
   try {
-    const res = await fetch('/api/config', {
+    const res = await apiFetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value)
@@ -902,7 +903,7 @@ async function startCreateVenv() {
   envProgress.value = { percent: 0, label: 'Iniciando...' }
   envError.value = ''
   try {
-    const res = await fetch('/api/automation/setup-venv', {
+    const res = await apiFetch('/api/automation/setup-venv', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectPath: form.value.projectPath })
@@ -920,7 +921,7 @@ async function startInstallDeps() {
   envProgress.value = { percent: 0, label: 'Iniciando...' }
   envError.value = ''
   try {
-    const res = await fetch('/api/automation/setup-deps', {
+    const res = await apiFetch('/api/automation/setup-deps', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectPath: form.value.projectPath })

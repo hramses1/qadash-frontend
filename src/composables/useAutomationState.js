@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { apiFetch } from './apiFetch.js';
 
 // Module-level singleton — persists across route navigation
 const checks = ref(null)
@@ -53,7 +54,7 @@ async function checkInstallStatus() {
   }
   try {
     const params = new URLSearchParams({ installPath: autoConfig.value.installPath })
-    const res = await fetch(`/api/automation/install-status?${params}`)
+    const res = await apiFetch(`/api/automation/install-status?${params}`)
     installStatus.value = await res.json()
   } catch {}
 }
@@ -63,7 +64,7 @@ async function fetchBranches() {
   branchesLoading.value = true
   try {
     const params = new URLSearchParams({ installPath: autoConfig.value.installPath })
-    const res = await fetch(`/api/automation/branches?${params}`)
+    const res = await apiFetch(`/api/automation/branches?${params}`)
     const data = await res.json()
     if (Array.isArray(data.branches)) {
       branches.value = data.branches
@@ -84,7 +85,7 @@ async function fetchBranches() {
 
 async function loadAutoConfig() {
   try {
-    const res = await fetch('/api/automation/config')
+    const res = await apiFetch('/api/automation/config')
     autoConfig.value = await res.json()
   } catch {}
 }
@@ -94,7 +95,7 @@ async function checkPrereqs() {
   checks.value = null
   autoError.value = ''
   try {
-    const res = await fetch('/api/automation/check')
+    const res = await apiFetch('/api/automation/check')
     checks.value = await res.json()
   } catch (e) {
     autoError.value = e.message
@@ -107,7 +108,7 @@ async function startDocker() {
   startingDocker.value = true
   autoError.value = ''
   try {
-    const res = await fetch('/api/docker/start-desktop', { method: 'POST' })
+    const res = await apiFetch('/api/docker/start-desktop', { method: 'POST' })
     const data = await res.json()
     if (!data.ready) autoError.value = data.error || 'No se pudo arrancar Docker Desktop'
     // Re-verificar requisitos para refrescar el estado de Docker.
@@ -122,7 +123,7 @@ async function startDocker() {
 async function saveAutoConfig() {
   savingAuto.value = true
   try {
-    await fetch('/api/automation/config', {
+    await apiFetch('/api/automation/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(autoConfig.value)
@@ -145,7 +146,7 @@ async function startInstall() {
   await saveAutoConfig()
 
   try {
-    const res = await fetch('/api/automation/install', {
+    const res = await apiFetch('/api/automation/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(autoConfig.value)
@@ -170,7 +171,7 @@ async function startUpdate() {
   updateProgress.value = { percent: 0, label: 'Iniciando actualización...', step: 'start' }
 
   try {
-    const res = await fetch('/api/automation/update', {
+    const res = await apiFetch('/api/automation/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ installPath: autoConfig.value.installPath, branch: updateBranch.value || 'develop' })
@@ -188,7 +189,7 @@ async function startUpdate() {
 
 async function applyConfig(projectPath, pytestCmd) {
   try {
-    await fetch('/api/automation/apply', {
+    await apiFetch('/api/automation/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectPath, pytestCmd })

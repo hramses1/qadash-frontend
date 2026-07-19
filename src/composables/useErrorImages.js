@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { apiFetch } from './apiFetch.js';
 
 const images = ref([])      // [{ name, mtime, size }]
 const folder = ref('')
@@ -11,7 +12,7 @@ async function fetchImages() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch('/api/errors/images')
+    const res = await apiFetch('/api/errors/images')
     const data = await res.json()
     if (data.error) { error.value = data.error; images.value = []; return }
     configured.value = data.configured !== false

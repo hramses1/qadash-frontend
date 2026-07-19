@@ -136,6 +136,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { apiFetch } from '../composables/apiFetch.js'
 import JsonNode from '../components/JsonNode.vue'
 
 const loaded = ref(false)
@@ -186,7 +187,7 @@ function clone(v) {
 async function loadTree() {
   treeError.value = ''
   try {
-    const res = await fetch('/api/jsondata/tree')
+    const res = await apiFetch('/api/jsondata/tree')
     const data = await res.json()
     configured.value = !!data.configured
     if (data.error) { treeError.value = data.error; tree.value = []; return }
@@ -219,7 +220,7 @@ async function loadFile() {
   error.value = ''
   saveMsg.value = ''
   try {
-    const res = await fetch(`/api/jsondata/file?${q()}`)
+    const res = await apiFetch(`/api/jsondata/file?${q()}`)
     const data = await res.json()
     if (data.error) { error.value = data.error; holder.value = null; return }
     holder.value = data.data
@@ -237,7 +238,7 @@ async function saveFile() {
   saveMsg.value = ''
   error.value = ''
   try {
-    const res = await fetch(`/api/jsondata/file?${q()}`, {
+    const res = await apiFetch(`/api/jsondata/file?${q()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: holder.value })
@@ -254,7 +255,7 @@ async function saveFile() {
 
 async function loadSnapshots() {
   try {
-    const res = await fetch(`/api/jsondata/snapshots?${q()}`)
+    const res = await apiFetch(`/api/jsondata/snapshots?${q()}`)
     snapshots.value = await res.json()
   } catch { snapshots.value = {} }
 }
@@ -262,7 +263,7 @@ async function loadSnapshots() {
 async function saveSnapshot(name) {
   const n = (name || '').trim()
   if (!n || !hasData.value) return
-  await fetch(`/api/jsondata/snapshots/${encodeURIComponent(n)}?${q()}`, {
+  await apiFetch(`/api/jsondata/snapshots/${encodeURIComponent(n)}?${q()}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ data: holder.value })
@@ -284,7 +285,7 @@ function applySnapshot(name) {
 }
 
 async function deleteSnapshot(name) {
-  await fetch(`/api/jsondata/snapshots/${encodeURIComponent(name)}?${q()}`, { method: 'DELETE' })
+  await apiFetch(`/api/jsondata/snapshots/${encodeURIComponent(name)}?${q()}`, { method: 'DELETE' })
   await loadSnapshots()
 }
 
@@ -304,7 +305,7 @@ async function saveModal() {
   if (!modalName.value) return
   modalSaving.value = true
   try {
-    await fetch(`/api/jsondata/snapshots/${encodeURIComponent(modalName.value)}?${q()}`, {
+    await apiFetch(`/api/jsondata/snapshots/${encodeURIComponent(modalName.value)}?${q()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: modalHolder.value })

@@ -408,6 +408,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { apiFetch } from '../composables/apiFetch.js'
 
 // ── Tab state ─────────────────────────────────────────────────────────────────
 const activeTab = ref('list')
@@ -610,7 +611,7 @@ watch(selectedReport, () => {
 
 async function loadReports() {
   try {
-    const res = await fetch('/api/reports')
+    const res = await apiFetch('/api/reports')
     reports.value = await res.json()
   } catch {
     reports.value = []
@@ -621,7 +622,7 @@ async function loadAnalytics() {
   statsLoading.value = true
   statsError.value = ''
   try {
-    const res = await fetch('/api/reports/analytics')
+    const res = await apiFetch('/api/reports/analytics')
     stats.value = await res.json()
   } catch (e) {
     statsError.value = e.message
@@ -637,7 +638,7 @@ async function reloadAnalytics() {
 
 async function viewReport(id) {
   try {
-    const res = await fetch(`/api/reports/${id}`)
+    const res = await apiFetch(`/api/reports/${id}`)
     const report = await res.json()
     report.tests = (report.tests || []).map(t => ({ ...t, _expanded: false }))
     selectedReport.value = { ...report, id }
@@ -648,7 +649,7 @@ async function viewReport(id) {
 
 async function deleteReport(id) {
   if (!confirm('¿Eliminar este reporte? No se puede deshacer.')) return
-  await fetch(`/api/reports/${id}`, { method: 'DELETE' })
+  await apiFetch(`/api/reports/${id}`, { method: 'DELETE' })
   reports.value = reports.value.filter(r => r.id !== id)
   stats.value = null  // force analytics refresh
 }

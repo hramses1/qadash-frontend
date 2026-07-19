@@ -348,6 +348,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, provide, nextTick, watch } from 'vue'
+import { apiFetch } from '../composables/apiFetch.js'
 defineOptions({ name: 'Dashboard' })
 
 const folderExpanded = ref({})
@@ -581,7 +582,7 @@ async function openEditor({ file }) {
   editorLoading.value = true
   editorModal.value = true
   try {
-    const res = await fetch(`/api/tests/file?name=${encodeURIComponent(file.name)}`)
+    const res = await apiFetch(`/api/tests/file?name=${encodeURIComponent(file.name)}`)
     const data = await res.json()
     if (data.error) { editorError.value = data.error; return }
     editorContent.value = data.content
@@ -605,7 +606,7 @@ async function saveEditorFile() {
   editorError.value = ''
   editorSaved.value = false
   try {
-    const res = await fetch('/api/tests/file', {
+    const res = await apiFetch('/api/tests/file', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: editorFile.value.name, content: editorContent.value })
@@ -638,7 +639,7 @@ async function collectTests() {
   lastSummary.value = null
 
   try {
-    const res = await fetch('/api/tests/collect')
+    const res = await apiFetch('/api/tests/collect')
     const data = await res.json()
 
     if (data.error) {
@@ -671,7 +672,7 @@ async function collectTests() {
 
 async function fetchEnvVars() {
   try {
-    const res = await fetch('/api/env')
+    const res = await apiFetch('/api/env')
     const data = await res.json()
     if (Array.isArray(data.vars)) {
       const map = {}
@@ -757,7 +758,7 @@ async function runSelected() {
   executionLogOpen.value = true
   runRepeat.value = 1
 
-  const res = await fetch('/api/tests/run', {
+  const res = await apiFetch('/api/tests/run', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -772,7 +773,7 @@ async function runSelected() {
 }
 
 async function abort() {
-  await fetch('/api/tests/abort', { method: 'POST' })
+  await apiFetch('/api/tests/abort', { method: 'POST' })
 }
 
 function handleExecutionStarted({ total }) {
@@ -862,7 +863,7 @@ watch([folderExpanded, fileExpanded], () => {
 
 
 onMounted(async () => {
-  const cfgRes = await fetch('/api/config')
+  const cfgRes = await apiFetch('/api/config')
   const cfg = await cfgRes.json()
   hasConfig.value = !!(cfg.projectPath)
   projectPath.value = cfg.projectPath || ''
@@ -872,7 +873,7 @@ onMounted(async () => {
   if (cfg.projectPath) {
     // ── Restore from cached collection (no pytest re-run needed) ──
     try {
-      const cacheRes = await fetch('/api/tests/cached')
+      const cacheRes = await apiFetch('/api/tests/cached')
       const cached = await cacheRes.json()
       if (cached.files && Object.keys(cached.files).length) {
         const savedSelected = new Set(lsLoad('sel', []))
@@ -902,7 +903,7 @@ onMounted(async () => {
   }
 
   // Check if execution was already running (e.g. page refresh mid-run)
-  const statusRes = await fetch('/api/tests/status')
+  const statusRes = await apiFetch('/api/tests/status')
   const status = await statusRes.json()
   running.value = status.running
 
