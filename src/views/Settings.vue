@@ -46,7 +46,7 @@
         </small>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" v-if="isEnabled('docker')">
         <label>Selenium Grid (URL remota)</label>
         <input v-model="form.seleniumRemoteUrl" type="text" class="input" placeholder="http://localhost:4444/wd/hub" />
         <small class="hint">
@@ -56,7 +56,7 @@
         </small>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" v-if="isEnabled('txtData')">
         <label>Carpeta de archivos .txt</label>
         <div class="input-browse-row">
           <input v-model="form.txtFolderPath" type="text" class="input" placeholder="C:\ruta\a\carpeta\con\txt" />
@@ -68,7 +68,7 @@
         </small>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" v-if="isEnabled('jsonData')">
         <label>Carpeta de datos JSON (dataTest)</label>
         <div class="input-browse-row">
           <input v-model="form.jsonDataPath" type="text" class="input" placeholder="C:\ruta\al\proyecto\src\data\dataTest" />
@@ -80,7 +80,7 @@
         </small>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" v-if="isEnabled('errorImages')">
         <label>Carpeta de imágenes de error</label>
         <div class="input-browse-row">
           <input v-model="form.errorImagesPath" type="text" class="input" placeholder="(por defecto: proyecto\reports\errors)" />
@@ -609,7 +609,7 @@ const showInstall = ref(false)
 const showModules = ref(false)
 const savingModules = ref(false)
 const modulesMsg = ref('')
-const { flags: featureFlags, loadFeatures, saveFeatures } = useFeatures()
+const { flags: featureFlags, loadFeatures, saveFeatures, isEnabled } = useFeatures()
 // Copia local editable (para no mutar el estado global hasta guardar).
 const moduleFlags = ref({})
 
