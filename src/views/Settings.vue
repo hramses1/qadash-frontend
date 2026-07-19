@@ -69,6 +69,18 @@
       </div>
 
       <div class="form-group">
+        <label>Carpeta de datos JSON (dataTest)</label>
+        <div class="input-browse-row">
+          <input v-model="form.jsonDataPath" type="text" class="input" placeholder="C:\ruta\al\proyecto\src\data\dataTest" />
+          <button class="btn-browse" @click="browse('folder', 'jsonDataPath')" :disabled="browsing" title="Seleccionar carpeta">📁</button>
+        </div>
+        <small class="hint">
+          Carpeta con subcarpetas (deposit, payment…) y sus archivos <code>.json</code>.
+          Se editan de forma cómoda en <RouterLink to="/datos-json">Datos JSON</RouterLink>.
+        </small>
+      </div>
+
+      <div class="form-group">
         <label>Carpeta de imágenes de error</label>
         <div class="input-browse-row">
           <input v-model="form.errorImagesPath" type="text" class="input" placeholder="(por defecto: proyecto\reports\errors)" />
@@ -95,6 +107,45 @@
       <div v-if="saveMsg" class="alert alert-success">✅ {{ saveMsg }}</div>
       <div v-if="error" class="alert alert-error">❌ {{ error }}</div>
 
+      </div>
+    </div>
+
+    <!-- ── Módulos del Dashboard ── -->
+    <div class="card">
+      <button class="card-toggle" @click="showModules = !showModules" :aria-expanded="showModules">
+        <span class="toggle-caret" :class="{ open: showModules }">▸</span>
+        <h2 class="card-title">Módulos del Dashboard</h2>
+      </button>
+
+      <div v-show="showModules" class="card-collapsible">
+        <p class="hint-text">
+          Activa o desactiva módulos para adaptar el dashboard a esta automatización.
+          Un módulo desactivado se oculta del menú y su sección queda bloqueada.
+          La configuración se guarda por proyecto.
+        </p>
+
+        <div v-if="!form.projectPath" class="alert alert-warning">
+          ⚠️ Configura primero la ruta del proyecto para editar sus módulos.
+        </div>
+
+        <template v-else>
+          <div class="module-list">
+            <label v-for="f in FEATURE_MAP" :key="f.key" class="module-row">
+              <span class="module-info">
+                <span class="module-icon">{{ f.icon }}</span>
+                <span class="module-label">{{ f.label }}</span>
+              </span>
+              <input type="checkbox" v-model="moduleFlags[f.key]" class="module-switch" />
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="saveModules" :disabled="savingModules">
+              {{ savingModules ? 'Guardando...' : '💾 Guardar módulos' }}
+            </button>
+          </div>
+          <div v-if="modulesMsg" class="alert alert-success">✅ {{ modulesMsg }}</div>
+        </template>
       </div>
     </div>
 
@@ -537,9 +588,11 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useSocket } from '../composables/useSocket'
 import { useAutomationState } from '../composables/useAutomationState'
+import { FEATURE_MAP } from '../composables/featureMap'
+import { useFeatures } from '../composables/useFeatures'
 
 // ── Config principal ──
-const form = ref({ projectPath: '', envPath: '', pytestCmd: 'pytest', txtFolderPath: '', seleniumRemoteUrl: '', errorImagesPath: '' })
+const form = ref({ projectPath: '', envPath: '', pytestCmd: 'pytest', txtFolderPath: '', seleniumRemoteUrl: '', errorImagesPath: '', jsonDataPath: '' })
 const saving = ref(false)
 const validating = ref(false)
 const browsing = ref(false)
@@ -550,6 +603,33 @@ const error = ref('')
 // Colapsables
 const showPaths = ref(true)
 const showInstall = ref(false)
+
+// ── Módulos del Dashboard ──
+const showModules = ref(false)
+const savingModules = ref(false)
+const modulesMsg = ref('')
+const { flags: featureFlags, loadFeatures, saveFeatures } = useFeatures()
+// Copia local editable (para no mutar el estado global hasta guardar).
+const moduleFlags = ref({})
+
+async function loadModules() {
+  await loadFeatures()
+  moduleFlags.value = { ...featureFlags.value }
+}
+
+async function saveModules() {
+  savingModules.value = true
+  modulesMsg.value = ''
+  try {
+    await saveFeatures({ ...moduleFlags.value })
+    moduleFlags.value = { ...featureFlags.value }
+    modulesMsg.value = 'Módulos guardados. El menú se actualizó.'
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    savingModules.value = false
+  }
+}
 
 // Estado de rutas: completa si proyecto + .env + pytest definidos
 const pathsReady = computed(() =>
@@ -592,6 +672,7 @@ async function browse(type, target) {
       : target === 'envPath' ? form.value.envPath
       : target === 'txtFolderPath' ? form.value.txtFolderPath
       : target === 'errorImagesPath' ? form.value.errorImagesPath
+      : target === 'jsonDataPath' ? form.value.jsonDataPath
       : autoConfig.value.installPath
     const params = new URLSearchParams({ type })
     if (currentVal) params.set('startPath', currentVal)
@@ -602,6 +683,7 @@ async function browse(type, target) {
       else if (target === 'envPath') form.value.envPath = data.path
       else if (target === 'txtFolderPath') form.value.txtFolderPath = data.path
       else if (target === 'errorImagesPath') form.value.errorImagesPath = data.path
+      else if (target === 'jsonDataPath') form.value.jsonDataPath = data.path
       else if (target === 'installPath') autoConfig.value.installPath = data.path
     }
   } catch (e) {
@@ -621,7 +703,8 @@ onMounted(async () => {
       pytestCmd: data.pytestCmd || '.\\venv\\Scripts\\pytest.exe',
       txtFolderPath: data.txtFolderPath || '',
       seleniumRemoteUrl: data.seleniumRemoteUrl || '',
-      errorImagesPath: data.errorImagesPath || ''
+      errorImagesPath: data.errorImagesPath || '',
+      jsonDataPath: data.jsonDataPath || ''
     }
     // Auto-detecta .env si hay proyecto pero no ruta .env guardada
     if (form.value.projectPath && !form.value.envPath) detectEnv(true)
@@ -644,6 +727,8 @@ onMounted(async () => {
     form.value.projectPath = projectPath
     form.value.pytestCmd = pytestCmd
   })
+
+  loadModules()
 })
 
 async function validate() {
@@ -681,6 +766,7 @@ async function save() {
     } else {
       saveMsg.value = 'Configuración guardada correctamente'
     }
+    if (!data.error) await loadModules()
   } catch (e) {
     error.value = e.message
   } finally {
@@ -1037,4 +1123,16 @@ envSocket.on('env:failed', ({ error: err }) => {
 .branch-chip:hover { border-color: #6366f1; color: #6366f1; }
 .branch-chip-active { background: rgba(99,102,241,.15); border-color: #6366f1; color: #6366f1; }
 .branch-loading { font-size: .8rem; opacity: .65; align-self: center; }
+
+.module-list { display: flex; flex-direction: column; gap: .25rem; margin: .5rem 0 1rem; }
+.module-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .6rem .9rem; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border, #e2e8f0);
+}
+.module-row:hover { background: var(--bg-secondary, #f8fafc); }
+.module-info { display: flex; align-items: center; gap: .6rem; font-size: .92rem; }
+.module-icon { font-size: 1.1rem; }
+.module-label { font-weight: 500; }
+.module-switch { width: 18px; height: 18px; cursor: pointer; }
 </style>

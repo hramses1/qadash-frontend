@@ -129,7 +129,13 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row, i) in visibleRows" :key="i">
+              <tr
+                v-for="(row, i) in visibleRows"
+                :key="i"
+                class="row-clickable"
+                title="Ver detalle"
+                @click="selectedIndex = i"
+              >
                 <td class="idx-col">{{ i + 1 }}</td>
                 <td v-for="c in visibleColumns" :key="c" :title="row[c]">{{ row[c] }}</td>
               </tr>
@@ -138,12 +144,24 @@
         </div>
       </div>
     </template>
+
+    <RowDetailModal
+      :row="visibleRows[selectedIndex] ?? null"
+      :columns="visibleColumns"
+      :prettyCol="prettyCol"
+      :index="selectedIndex"
+      :total="visibleRows.length"
+      @close="selectedIndex = -1"
+      @prev="selectedIndex--"
+      @next="selectedIndex++"
+    />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useTxtData } from '../composables/useTxtData'
+import RowDetailModal from '../components/RowDetailModal.vue'
 
 const {
   loading, configured, error, folder, fileCount, columns, rows, parseErrors, files,
@@ -151,6 +169,8 @@ const {
   dateColumns, companyColumn, companyValues, hasFilters, visibleRows, visibleColumns, erroredCount,
   prettyCol, clearFilters, load, downloadExcel
 } = useTxtData()
+
+const selectedIndex = ref(-1)
 
 onMounted(load)
 </script>
@@ -273,6 +293,7 @@ td.idx-col { background: #fff; border-right: 1px solid #eef2f7; }
 
 .data-table tbody tr:nth-child(even) td { background: #fbfcfe; }
 .data-table tbody tr:nth-child(even) td.idx-col { background: #f6f8fc; }
+.row-clickable { cursor: pointer; }
 .data-table tbody tr:hover td { background: #eef2ff; }
 .data-table tbody tr:hover td.idx-col { background: #e6ebfd; color: #4f46e5; }
 .data-table tbody tr:last-child td { border-bottom: none; }

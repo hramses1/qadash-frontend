@@ -11,40 +11,10 @@
             <span>Tests</span>
           </RouterLink>
         </li>
-        <li>
-          <RouterLink to="/env" class="nav-link">
-            <span class="nav-icon">⚙️</span>
-            <span>Variables</span>
-          </RouterLink>
-        </li>
-        <li>
-          <RouterLink to="/reports" class="nav-link">
-            <span class="nav-icon">📊</span>
-            <span>Reportes</span>
-          </RouterLink>
-        </li>
-        <li>
-          <RouterLink to="/datos-txt" class="nav-link">
-            <span class="nav-icon">📄</span>
-            <span>Datos TXT</span>
-          </RouterLink>
-        </li>
-        <li>
-          <RouterLink to="/imagenes-error" class="nav-link">
-            <span class="nav-icon">🖼️</span>
-            <span>Imágenes de error</span>
-          </RouterLink>
-        </li>
-        <li>
-          <RouterLink to="/docker" class="nav-link">
-            <span class="nav-icon">🐳</span>
-            <span>Docker</span>
-          </RouterLink>
-        </li>
-        <li>
-          <RouterLink to="/calendarizacion" class="nav-link">
-            <span class="nav-icon">🗓️</span>
-            <span>Calendarización</span>
+        <li v-for="f in FEATURE_MAP" :key="f.key" v-show="isEnabled(f.key)">
+          <RouterLink :to="f.path" class="nav-link">
+            <span class="nav-icon">{{ f.icon }}</span>
+            <span>{{ f.label }}</span>
           </RouterLink>
         </li>
         <li>
@@ -71,6 +41,13 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { useSocket } from './composables/useSocket'
+import { useFeatures } from './composables/useFeatures'
+import { FEATURE_MAP } from './composables/featureMap'
+
 const { connected } = useSocket()
+const { isEnabled, loadFeatures } = useFeatures()
+
+onMounted(loadFeatures)
 </script>
