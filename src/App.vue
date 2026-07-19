@@ -5,22 +5,19 @@
         <span class="logo">⚡ Test Dashboard</span>
       </div>
 
-      <!-- Switcher de workspace (perfil) -->
+      <!-- Switcher de workspace (perfil), alineado a la paleta del sidebar -->
       <div class="ws">
-        <span class="ws-eyebrow">Workspace activo</span>
+        <span class="ws-eyebrow">Workspace</span>
 
         <button
           class="ws-current"
-          :class="{ live: activeRunning, open: menuOpen }"
+          :class="{ open: menuOpen }"
           :aria-expanded="menuOpen"
           aria-haspopup="listbox"
           @click="menuOpen = !menuOpen"
         >
-          <span class="ws-status" :class="{ live: activeRunning }" aria-hidden="true"></span>
-          <span class="ws-current-text">
-            <span class="ws-current-name">{{ activeProfile?.name || 'Sin perfil' }}</span>
-            <span class="ws-current-id">{{ activeProfile?.id || '—' }}</span>
-          </span>
+          <span class="ws-dot" :class="{ live: activeRunning }" aria-hidden="true"></span>
+          <span class="ws-current-name">{{ activeProfile?.name || 'Sin perfil' }}</span>
           <svg class="ws-chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
             <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -40,16 +37,13 @@
             @click="pick(p.id)"
             @keyup.enter="pick(p.id)"
           >
-            <span class="ws-status" :class="{ live: runningIds.has(p.id) }" aria-hidden="true"></span>
-            <span class="ws-option-text">
-              <span class="ws-option-name">{{ p.name }}</span>
-              <span class="ws-option-id">{{ p.id }}</span>
-            </span>
+            <span class="ws-dot" :class="{ live: runningIds.has(p.id) }" aria-hidden="true"></span>
+            <span class="ws-option-name">{{ p.name }}</span>
             <span v-if="runningIds.has(p.id)" class="ws-tag">corriendo</span>
             <span v-else-if="p.id === activeProfileId" class="ws-check" aria-hidden="true">✓</span>
           </li>
           <li class="ws-menu-foot">
-            <button class="ws-manage" @click="openManager">Gestionar workspaces</button>
+            <button class="ws-manage" @click="openManager">⚙ Gestionar workspaces</button>
           </li>
         </ul>
       </div>
@@ -88,49 +82,47 @@
       </RouterView>
     </main>
 
-    <!-- Panel de gestión de workspaces -->
-    <div v-if="showManager" class="wm-overlay" @click.self="showManager = false">
-      <div class="wm-panel" role="dialog" aria-label="Gestionar workspaces">
-        <header class="wm-head">
-          <div>
-            <span class="wm-eyebrow">Workspaces</span>
-            <h3 class="wm-title">Automatizaciones</h3>
-          </div>
-          <button class="wm-close" aria-label="Cerrar" @click="showManager = false">✕</button>
-        </header>
+    <!-- Panel de gestión de workspaces: modal claro, estilo del dashboard -->
+    <div v-if="showManager" class="modal-backdrop" @click.self="showManager = false">
+      <div class="modal wm-modal" role="dialog" aria-label="Gestionar workspaces">
+        <div class="modal-header">
+          <h3 class="modal-title">Workspaces</h3>
+          <button class="btn-icon" aria-label="Cerrar" @click="showManager = false">✕</button>
+        </div>
 
-        <p class="wm-sub">Cada workspace corre aislado. Puedes ejecutar varios a la vez sin que se interfieran.</p>
-        <p v-if="pmError" class="wm-error">{{ pmError }}</p>
+        <div class="modal-body">
+          <p class="wm-sub">Cada workspace corre aislado. Puedes ejecutar varios a la vez sin que se interfieran.</p>
+          <p v-if="pmError" class="alert alert-error">{{ pmError }}</p>
 
-        <ul class="wm-list">
-          <li
-            v-for="p in profiles"
-            :key="p.id"
-            class="wm-card"
-            :class="{ active: p.id === activeProfileId, live: runningIds.has(p.id) }"
-          >
-            <span class="wm-rail" aria-hidden="true"></span>
-            <div class="wm-info">
-              <div class="wm-name-row">
-                <span class="ws-status" :class="{ live: runningIds.has(p.id) }" aria-hidden="true"></span>
-                <span class="wm-name">{{ p.name }}</span>
-                <span v-if="p.id === activeProfileId" class="wm-badge active-badge">activo</span>
-                <span v-if="runningIds.has(p.id)" class="wm-badge live-badge">corriendo</span>
+          <ul class="wm-list">
+            <li
+              v-for="p in profiles"
+              :key="p.id"
+              class="wm-item"
+              :class="{ active: p.id === activeProfileId }"
+            >
+              <div class="wm-info">
+                <div class="wm-name-row">
+                  <span class="ws-dot" :class="{ live: runningIds.has(p.id) }" aria-hidden="true"></span>
+                  <span class="wm-name">{{ p.name }}</span>
+                  <span v-if="p.id === activeProfileId" class="wm-badge active-badge">activo</span>
+                  <span v-if="runningIds.has(p.id)" class="wm-badge live-badge">corriendo</span>
+                </div>
+                <span class="wm-id">{{ p.id }}</span>
               </div>
-              <span class="wm-id">{{ p.id }}</span>
-            </div>
-            <div class="wm-actions">
-              <button v-if="p.id !== activeProfileId" class="wm-btn primary" @click="doActivate(p.id)">Usar</button>
-              <button class="wm-btn" title="Renombrar" @click="startRename(p)">Renombrar</button>
-              <button class="wm-btn" title="Duplicar" @click="doDuplicate(p)">Duplicar</button>
-              <button class="wm-btn danger" :disabled="profiles.length <= 1" title="Borrar" @click="doDelete(p)">Borrar</button>
-            </div>
-          </li>
-        </ul>
+              <div class="wm-actions">
+                <button v-if="p.id !== activeProfileId" class="btn btn-primary btn-sm" @click="doActivate(p.id)">Usar</button>
+                <button class="btn btn-secondary btn-sm" @click="startRename(p)">Renombrar</button>
+                <button class="btn btn-secondary btn-sm" @click="doDuplicate(p)">Duplicar</button>
+                <button class="btn btn-danger btn-sm" :disabled="profiles.length <= 1" @click="doDelete(p)">Borrar</button>
+              </div>
+            </li>
+          </ul>
+        </div>
 
-        <div class="wm-create">
+        <div class="modal-footer wm-footer">
           <input v-model="newName" class="wm-input" placeholder="Nombre del nuevo workspace" @keyup.enter="doCreate" />
-          <button class="wm-btn primary big" @click="doCreate">+ Crear workspace</button>
+          <button class="btn btn-primary" @click="doCreate">+ Crear workspace</button>
         </div>
       </div>
     </div>
@@ -169,8 +161,8 @@ onMounted(async () => {
 async function pick(id) {
   menuOpen.value = false
   if (id === activeProfileId.value) return
-  await setActive(id)
-  window.location.reload()
+  try { await setActive(id); window.location.reload() }
+  catch (err) { pmError.value = err.message; showManager.value = true }
 }
 
 function openManager() {
@@ -180,8 +172,8 @@ function openManager() {
 }
 
 async function doActivate(id) {
-  await setActive(id)
-  window.location.reload()
+  try { await setActive(id); window.location.reload() }
+  catch (err) { pmError.value = err.message }
 }
 
 async function doCreate() {
@@ -223,305 +215,170 @@ async function doDelete(p) {
 </script>
 
 <style scoped>
-/* ── Workspace switcher ─────────────────────────────────────────────
-   Seña del producto: elegir "workspace" de automatización, con estado
-   en vivo legible de un vistazo (clave para ejecución en paralelo). */
-.ws {
-  position: relative;
-  margin: 14px 14px 6px;
-  --ind-1: #6366f1;
-  --ind-2: #8b5cf6;
-  --ind-soft: #818cf8;
-  --live: #34d399;
-  --panel: #111a2e;
-  --panel-hi: #1b2740;
-  --line: rgba(129, 140, 248, 0.22);
-  --muted: #8ea0bd;
-}
+/* ── Switcher de workspace: paleta del sidebar (slate + azul) ─────── */
+.ws { position: relative; margin: 14px 14px 6px; }
 .ws-eyebrow {
   display: block;
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
-  margin: 0 2px 7px;
+  color: #94a3b8;
+  margin: 0 2px 6px;
 }
-
 .ws-current {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, var(--panel-hi), var(--panel));
-  color: #eaf0fb;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
   cursor: pointer;
   text-align: left;
-  position: relative;
-  overflow: hidden;
-  transition: border-color 0.16s, box-shadow 0.16s, transform 0.06s;
+  transition: border-color 0.14s, background 0.14s;
 }
-/* Riel indigo a la izquierda: firma visual del switcher. */
-.ws-current::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: linear-gradient(180deg, var(--ind-1), var(--ind-2));
-}
-.ws-current:hover { border-color: var(--ind-soft); }
-.ws-current.open {
-  border-color: var(--ind-soft);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
-}
-.ws-current.live::before { background: linear-gradient(180deg, var(--live), #10b981); }
-.ws-current:active { transform: translateY(0.5px); }
-
-.ws-current-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ws-current:hover { background: #1a2740; border-color: #475569; }
+.ws-current.open { border-color: #60a5fa; background: #1a2740; }
 .ws-current-name {
-  font-size: 0.92rem;
-  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ws-current-id {
-  font-family: 'Cascadia Code', 'Consolas', monospace;
-  font-size: 0.66rem;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ws-chevron { color: var(--muted); flex-shrink: 0; transition: transform 0.18s; }
+.ws-chevron { color: #94a3b8; flex-shrink: 0; transition: transform 0.18s; }
 .ws-current.open .ws-chevron { transform: rotate(180deg); }
 
-/* Punto de estado + pulso "en vivo". */
-.ws-status {
-  width: 9px; height: 9px;
+.ws-dot {
+  width: 8px; height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #475569;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+  background: #64748b;
 }
-.ws-status.live {
-  background: var(--live);
-  box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
+.ws-dot.live {
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
   animation: ws-pulse 1.8s ease-out infinite;
 }
 @keyframes ws-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
-  70%  { box-shadow: 0 0 0 7px rgba(52, 211, 153, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  70%  { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
 }
 
-/* Popover de opciones. */
 .ws-backdrop { position: fixed; inset: 0; z-index: 40; }
 .ws-menu {
   position: absolute;
   z-index: 50;
-  top: calc(100% + 6px);
+  top: calc(100% + 5px);
   left: 0; right: 0;
-  margin: 0; padding: 6px;
+  margin: 0; padding: 5px;
   list-style: none;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.6);
-  animation: ws-drop 0.14s ease-out;
-}
-@keyframes ws-drop {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.55);
 }
 .ws-option {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 9px;
+  gap: 9px;
+  padding: 8px 9px;
+  border-radius: 6px;
   cursor: pointer;
-  color: #dbe4f5;
-  transition: background 0.12s;
+  color: #cbd5e1;
+  transition: background 0.12s, color 0.12s;
 }
-.ws-option:hover, .ws-option:focus-visible { background: var(--panel-hi); outline: none; }
-.ws-option:focus-visible { box-shadow: inset 0 0 0 1px var(--ind-soft); }
-.ws-option.selected { background: rgba(99, 102, 241, 0.14); }
-.ws-option-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.ws-option-name { font-size: 0.86rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-option-id {
-  font-family: 'Cascadia Code', 'Consolas', monospace;
-  font-size: 0.62rem;
-  color: var(--muted);
-}
-.ws-check { color: var(--ind-soft); font-size: 0.82rem; }
+.ws-option:hover, .ws-option:focus-visible { background: #334155; color: #f1f5f9; outline: none; }
+.ws-option:focus-visible { box-shadow: inset 0 0 0 1px #60a5fa; }
+.ws-option.selected { background: #0f172a; color: #60a5fa; }
+.ws-option-name { flex: 1; min-width: 0; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-check { color: #60a5fa; font-size: 0.8rem; }
 .ws-tag {
   font-size: 0.6rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--live);
-  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.4);
   border-radius: 999px;
-  padding: 2px 7px;
+  padding: 1px 7px;
 }
-.ws-menu-foot { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 6px; }
+.ws-menu-foot { margin-top: 4px; border-top: 1px solid #334155; padding-top: 5px; }
 .ws-manage {
   width: 100%;
-  padding: 8px;
+  padding: 7px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--ind-soft);
+  color: #60a5fa;
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.12s;
 }
-.ws-manage:hover { background: rgba(99, 102, 241, 0.12); }
+.ws-manage:hover { background: #334155; }
 
-/* ── Panel de gestión ───────────────────────────────────────────── */
-.wm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(2, 6, 23, 0.62);
-  backdrop-filter: blur(3px);
+/* ── Panel de gestión: reutiliza .modal del dashboard (claro) ─────── */
+.wm-modal { width: 560px; }
+.wm-sub { font-size: 13px; color: #64748b; margin: 0 0 14px; }
+.wm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.wm-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-.wm-panel {
-  width: min(600px, 96vw);
-  max-height: 84vh;
-  overflow: auto;
-  background: linear-gradient(180deg, #16213a, #0f1729);
-  border: 1px solid rgba(129, 140, 248, 0.2);
-  border-radius: 16px;
-  padding: 22px 22px 20px;
-  color: #e2e8f0;
-  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.6);
-}
-.wm-head { display: flex; justify-content: space-between; align-items: flex-start; }
-.wm-eyebrow {
-  display: block;
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #8ea0bd;
-}
-.wm-title {
-  margin: 3px 0 0;
-  font-size: 1.32rem;
-  font-weight: 650;
-  background: linear-gradient(90deg, #c7d2fe, #a78bfa);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.wm-close {
-  background: none; border: none; color: #8ea0bd;
-  font-size: 1.05rem; cursor: pointer; line-height: 1; padding: 4px;
-  border-radius: 6px;
-}
-.wm-close:hover { color: #e2e8f0; background: rgba(255,255,255,0.06); }
-.wm-sub { margin: 10px 0 4px; font-size: 0.82rem; color: #9fb0cc; }
-.wm-error {
-  margin: 10px 0 0;
-  font-size: 0.82rem;
-  color: #fca5a5;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.28);
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-
-.wm-list { list-style: none; margin: 16px 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.wm-card {
-  position: relative;
-  display: flex;
-  align-items: center;
+  justify-content: space-between;
   gap: 14px;
-  padding: 13px 14px 13px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(255, 255, 255, 0.02);
-  overflow: hidden;
-  transition: border-color 0.15s, background 0.15s;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color 0.14s, background 0.14s;
 }
-.wm-card:hover { border-color: rgba(129, 140, 248, 0.35); }
-.wm-rail {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-  background: rgba(148, 163, 184, 0.2);
-}
-.wm-card.active { border-color: rgba(99, 102, 241, 0.5); background: rgba(99, 102, 241, 0.08); }
-.wm-card.active .wm-rail { background: linear-gradient(180deg, #6366f1, #8b5cf6); }
-.wm-card.live .wm-rail { background: linear-gradient(180deg, #34d399, #10b981); }
-.wm-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wm-item:hover { border-color: #cbd5e1; background: #f8fafc; }
+.wm-item.active { border-color: #bfdbfe; background: #eff6ff; }
+.wm-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .wm-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.wm-name { font-weight: 600; font-size: 0.95rem; }
+.wm-name { font-weight: 600; font-size: 14px; color: #1e293b; }
 .wm-id {
   font-family: 'Cascadia Code', 'Consolas', monospace;
-  font-size: 0.66rem;
-  color: #8ea0bd;
+  font-size: 11px;
+  color: #94a3b8;
 }
 .wm-badge {
-  font-size: 0.58rem;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   border-radius: 999px;
   padding: 2px 8px;
+  font-weight: 600;
 }
-.active-badge { color: #c7d2fe; border: 1px solid rgba(129, 140, 248, 0.45); }
-.live-badge { color: #34d399; border: 1px solid rgba(52, 211, 153, 0.45); }
-
+.active-badge { color: #2563eb; background: #dbeafe; }
+.live-badge { color: #16a34a; background: #dcfce7; }
 .wm-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.wm-btn {
-  padding: 6px 11px;
-  font-size: 0.78rem;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(255, 255, 255, 0.04);
-  color: #dbe4f5;
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
-}
-.wm-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(129, 140, 248, 0.4); }
-.wm-btn.primary {
-  border: none;
-  background: linear-gradient(90deg, #6366f1, #7c3aed);
-  color: #fff;
-}
-.wm-btn.primary:hover { filter: brightness(1.08); }
-.wm-btn.danger { color: #fca5a5; }
-.wm-btn.danger:hover { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.5); color: #fecaca; }
-.wm-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.wm-btn.big { padding: 10px 16px; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
 
-.wm-create { display: flex; gap: 10px; margin-top: 4px; }
+.wm-footer { align-items: center; gap: 10px; }
 .wm-input {
   flex: 1;
-  padding: 10px 12px;
-  border-radius: 9px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(2, 6, 23, 0.5);
-  color: #e2e8f0;
-  font-size: 0.86rem;
+  padding: 8px 11px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #1e293b;
+  font-size: 13px;
 }
-.wm-input::placeholder { color: #64748b; }
-.wm-input:focus { outline: none; border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16); }
+.wm-input::placeholder { color: #94a3b8; }
+.wm-input:focus { outline: none; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ws-status.live { animation: none; box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35); }
-  .ws-menu { animation: none; }
+  .ws-dot.live { animation: none; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3); }
   .ws-chevron, .ws-current { transition: none; }
 }
-
 @media (max-width: 720px) {
+  .wm-item { flex-direction: column; align-items: flex-start; }
   .wm-actions { justify-content: flex-start; }
-  .wm-create { flex-direction: column; }
+  .wm-footer { flex-direction: column; align-items: stretch; }
 }
 </style>

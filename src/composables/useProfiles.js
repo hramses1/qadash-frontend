@@ -12,9 +12,27 @@ function setRunning(list) {
   runningIds.value = new Set((list || []).filter(p => p.running).map(p => p.id));
 }
 
+// Parseo tolerante: nunca llama res.json() a ciegas. Si el body está vacío o no
+// es JSON (backend viejo, 404, proxy), da un error claro en vez de crashear con
+// "Unexpected end of JSON input".
+async function jreq(url, options) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch (e) {
+    throw new Error('No se pudo contactar el servidor. ¿Backend corriendo?');
+  }
+  const text = await res.text();
+  let data = null;
+  if (text) { try { data = JSON.parse(text); } catch { /* no-JSON */ } }
+  if (!res.ok) {
+    throw new Error((data && data.error) || `El servidor respondió ${res.status}. Reinicia el backend (v2.1).`);
+  }
+  return data || {};
+}
+
 async function loadProfiles() {
-  const res = await fetch('/api/profile-admin');
-  const data = await res.json();
+  const data = await jreq('/api/profile-admin');
   profiles.value = data.profiles || [];
   const valid = profiles.value.some(p => p.id === activeProfileId.value);
   const next = valid ? activeProfileId.value : data.activeProfileId;
@@ -28,42 +46,36 @@ async function loadProfiles() {
 }
 
 async function setActive(id) {
-  await fetch(`/api/profile-admin/${id}/activate`, { method: 'PATCH' });
+  await jreq(`/api/profile-admin/${id}/activate`, { method: 'PATCH' });
   activeProfileId.value = id;
   setActiveProfileId(id);
 }
 
 async function createProfile(name) {
-  const res = await fetch('/api/profile-admin', {
+  const entry = await jreq('/api/profile-admin', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
   });
-  if (!res.ok) throw new Error((await res.json()).error || 'Error creando perfil');
-  const entry = await res.json();
   await loadProfiles();
   return entry;
 }
 
 async function renameProfile(id, name) {
-  const res = await fetch(`/api/profile-admin/${id}/rename`, {
+  await jreq(`/api/profile-admin/${id}/rename`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
   });
-  if (!res.ok) throw new Error((await res.json()).error || 'Error renombrando');
   await loadProfiles();
 }
 
 async function duplicateProfile(id, name) {
-  const res = await fetch(`/api/profile-admin/${id}/duplicate`, {
+  const entry = await jreq(`/api/profile-admin/${id}/duplicate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
   });
-  if (!res.ok) throw new Error((await res.json()).error || 'Error duplicando');
-  const entry = await res.json();
   await loadProfiles();
   return entry;
 }
 
 async function deleteProfile(id) {
-  const res = await fetch(`/api/profile-admin/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error((await res.json()).error || 'Error borrando');
+  await jreq(`/api/profile-admin/${id}`, { method: 'DELETE' });
   await loadProfiles();
 }
 
