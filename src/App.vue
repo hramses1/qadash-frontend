@@ -215,36 +215,36 @@ async function doDelete(p) {
 </script>
 
 <style scoped>
-/* ── Switcher de workspace: paleta del sidebar (slate + azul) ─────── */
-.ws { position: relative; margin: 14px 14px 6px; }
+/* ── Switcher de workspace: mismos tokens que el nav del sidebar ──── */
+.ws { position: relative; margin: 8px 8px 6px; }
 .ws-eyebrow {
   display: block;
-  font-size: 0.64rem;
-  letter-spacing: 0.12em;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
-  margin: 0 2px 6px;
+  color: #64748b;
+  margin: 0 4px 5px;
 }
 .ws-current {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 11px;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
   border: 1px solid #334155;
   background: #0f172a;
   color: #e2e8f0;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.14s, background 0.14s;
+  transition: border-color 0.12s, background 0.12s;
 }
-.ws-current:hover { background: #1a2740; border-color: #475569; }
-.ws-current.open { border-color: #60a5fa; background: #1a2740; }
+.ws-current:hover { background: #334155; border-color: #475569; }
+.ws-current.open { border-color: #60a5fa; background: #0f172a; }
 .ws-current-name {
   flex: 1;
   min-width: 0;
-  font-size: 0.9rem;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -260,14 +260,14 @@ async function doDelete(p) {
   background: #64748b;
 }
 .ws-dot.live {
-  background: #22c55e;
-  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  background: #4ade80;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5);
   animation: ws-pulse 1.8s ease-out infinite;
 }
 @keyframes ws-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
-  70%  { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); }
+  70%  { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
 .ws-backdrop { position: fixed; inset: 0; z-index: 40; }
@@ -286,38 +286,39 @@ async function doDelete(p) {
 .ws-option {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 9px;
+  gap: 10px;
+  padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
-  color: #cbd5e1;
+  color: #94a3b8;
   transition: background 0.12s, color 0.12s;
 }
 .ws-option:hover, .ws-option:focus-visible { background: #334155; color: #f1f5f9; outline: none; }
 .ws-option:focus-visible { box-shadow: inset 0 0 0 1px #60a5fa; }
-.ws-option.selected { background: #0f172a; color: #60a5fa; }
-.ws-option-name { flex: 1; min-width: 0; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-check { color: #60a5fa; font-size: 0.8rem; }
+.ws-option.selected { background: #0f172a; color: #60a5fa; font-weight: 500; }
+.ws-option-name { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-check { color: #60a5fa; font-size: 13px; }
 .ws-tag {
-  font-size: 0.6rem;
+  font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.4);
   border-radius: 999px;
   padding: 1px 7px;
 }
 .ws-menu-foot { margin-top: 4px; border-top: 1px solid #334155; padding-top: 5px; }
 .ws-manage {
   width: 100%;
-  padding: 7px;
+  padding: 8px 12px;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: #60a5fa;
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  text-align: left;
   transition: background 0.12s;
 }
 .ws-manage:hover { background: #334155; }
@@ -373,7 +374,7 @@ async function doDelete(p) {
 .wm-input:focus { outline: none; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ws-dot.live { animation: none; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3); }
+  .ws-dot.live { animation: none; box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3); }
   .ws-chevron, .ws-current { transition: none; }
 }
 @media (max-width: 720px) {
