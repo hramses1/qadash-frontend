@@ -102,19 +102,39 @@
               :class="{ active: p.id === activeProfileId }"
             >
               <div class="wm-info">
-                <div class="wm-name-row">
-                  <span class="ws-dot" :class="{ live: runningIds.has(p.id) }" aria-hidden="true"></span>
-                  <span class="wm-name">{{ p.name }}</span>
-                  <span v-if="p.id === activeProfileId" class="wm-badge active-badge">activo</span>
-                  <span v-if="runningIds.has(p.id)" class="wm-badge live-badge">corriendo</span>
+                <div v-if="editingId === p.id" class="wm-edit-row">
+                  <input
+                    v-model="editName"
+                    class="wm-input wm-edit-input"
+                    :ref="el => setEditRef(el)"
+                    @keyup.enter="saveRename(p)"
+                    @keyup.esc="cancelRename"
+                  />
+                  <button class="btn btn-primary btn-sm" @click="saveRename(p)">Guardar</button>
+                  <button class="btn btn-secondary btn-sm" @click="cancelRename">Cancelar</button>
                 </div>
-                <span class="wm-id">{{ p.id }}</span>
+                <template v-else>
+                  <div class="wm-name-row">
+                    <span class="ws-dot" :class="{ live: runningIds.has(p.id) }" aria-hidden="true"></span>
+                    <span class="wm-name">{{ p.name }}</span>
+                    <span v-if="p.id === activeProfileId" class="wm-badge active-badge">activo</span>
+                    <span v-if="runningIds.has(p.id)" class="wm-badge live-badge">corriendo</span>
+                  </div>
+                  <span class="wm-id">{{ p.id }}</span>
+                </template>
               </div>
-              <div class="wm-actions">
-                <button v-if="p.id !== activeProfileId" class="btn btn-primary btn-sm" @click="doActivate(p.id)">Usar</button>
-                <button class="btn btn-secondary btn-sm" @click="startRename(p)">Renombrar</button>
-                <button class="btn btn-secondary btn-sm" @click="doDuplicate(p)">Duplicar</button>
-                <button class="btn btn-danger btn-sm" :disabled="profiles.length <= 1" @click="doDelete(p)">Borrar</button>
+              <div v-if="editingId !== p.id" class="wm-actions">
+                <template v-if="confirmDeleteId === p.id">
+                  <span class="wm-confirm-txt">¿Borrar?</span>
+                  <button class="btn btn-danger btn-sm" @click="confirmDelete(p)">Sí, borrar</button>
+                  <button class="btn btn-secondary btn-sm" @click="confirmDeleteId = null">No</button>
+                </template>
+                <template v-else>
+                  <button v-if="p.id !== activeProfileId" class="btn btn-primary btn-sm" @click="doActivate(p.id)">Usar</button>
+                  <button class="btn btn-secondary btn-sm" @click="startRename(p)">Renombrar</button>
+                  <button class="btn btn-secondary btn-sm" @click="doDuplicate(p)">Duplicar</button>
+                  <button class="btn btn-danger btn-sm" :disabled="profiles.length <= 1" @click="confirmDeleteId = p.id">Borrar</button>
+                </template>
               </div>
             </li>
           </ul>
@@ -130,7 +150,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, computed, ref, nextTick } from 'vue'
 import { useSocket } from './composables/useSocket'
 import { useFeatures } from './composables/useFeatures'
 import { useProfiles } from './composables/useProfiles'
@@ -146,6 +166,13 @@ const {
 const menuOpen = ref(false)
 const showManager = ref(false)
 const newName = ref('')
+// Rename inline y confirmación de borrado in-app (Electron no soporta
+// window.prompt y confirm/alert nativos son inconsistentes bajo file://).
+const editingId = ref(null)
+const editName = ref('')
+const confirmDeleteId = ref(null)
+let editRef = null
+function setEditRef(el) { if (el) { editRef = el; nextTick(() => el.focus()) } }
 const pmError = ref('')
 
 const activeProfile = computed(() => profiles.value.find(p => p.id === activeProfileId.value) || null)
@@ -168,6 +195,8 @@ async function pick(id) {
 function openManager() {
   menuOpen.value = false
   pmError.value = ''
+  editingId.value = null
+  confirmDeleteId.value = null
   showManager.value = true
 }
 
@@ -186,25 +215,34 @@ async function doCreate() {
   } catch (err) { pmError.value = err.message }
 }
 
-async function startRename(p) {
-  const name = window.prompt('Nuevo nombre del workspace', p.name)
-  if (!name || !name.trim()) return
+function startRename(p) {
+  confirmDeleteId.value = null
+  editName.value = p.name
+  editingId.value = p.id
+}
+
+function cancelRename() {
+  editingId.value = null
+  editName.value = ''
+}
+
+async function saveRename(p) {
+  const name = editName.value.trim()
+  if (!name || name === p.name) { cancelRename(); return }
   pmError.value = ''
-  try { await renameProfile(p.id, name.trim()) }
+  try { await renameProfile(p.id, name); cancelRename() }
   catch (err) { pmError.value = err.message }
 }
 
 async function doDuplicate(p) {
-  const name = window.prompt('Nombre del workspace duplicado', `${p.name} (copia)`)
-  if (!name || !name.trim()) return
   pmError.value = ''
-  try { await duplicateProfile(p.id, name.trim()) }
+  try { await duplicateProfile(p.id, `${p.name} (copia)`) }
   catch (err) { pmError.value = err.message }
 }
 
-async function doDelete(p) {
+async function confirmDelete(p) {
+  confirmDeleteId.value = null
   if (runningIds.value.has(p.id)) { pmError.value = 'Workspace en ejecución; deténlo antes de borrar'; return }
-  if (!window.confirm(`¿Borrar el workspace "${p.name}"? Se eliminan su configuración y reportes.`)) return
   pmError.value = ''
   const wasActive = p.id === activeProfileId.value
   try {
@@ -359,6 +397,9 @@ async function doDelete(p) {
 .active-badge { color: #2563eb; background: #dbeafe; }
 .live-badge { color: #16a34a; background: #dcfce7; }
 .wm-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.wm-edit-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+.wm-edit-input { flex: 1; min-width: 0; padding: 6px 10px; }
+.wm-confirm-txt { font-size: 13px; color: #dc2626; font-weight: 500; margin-right: 2px; }
 
 .wm-footer { align-items: center; gap: 10px; }
 .wm-input {
