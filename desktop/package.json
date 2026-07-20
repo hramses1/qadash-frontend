@@ -1,0 +1,39 @@
+{
+  "name": "qadash-desktop",
+  "version": "1.0.0",
+  "description": "QADash como app de escritorio (Electron) — embebe el backend y el build del frontend",
+  "main": "main.js",
+  "author": "Hector",
+  "license": "ISC",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.qadash.app",
+    "productName": "QADash",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "../dist", "to": "dist" },
+      {
+        "from": "../../qadash-backend",
+        "to": "qadash-backend",
+        "filter": ["**/*", "!profiles/**", "!reports/**", "!data/**", "!**/*.test.js"]
+      }
+    ],
+    "win": { "target": "nsis" },
+    "linux": { "target": "deb" }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}

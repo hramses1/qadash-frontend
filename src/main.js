@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router'
 import App from './App.vue'
 import './assets/style.css'
 
@@ -15,8 +15,11 @@ import ErrorImages from './views/ErrorImages.vue'
 import { pathToFeature } from './composables/featureMap'
 import { useFeatures } from './composables/useFeatures'
 
+// Bajo Electron (file://) no hay servidor que resuelva rutas → hash history.
+// En navegador (http) se mantiene history normal (URLs limpias).
+const isElectron = typeof window !== 'undefined' && window.QADASH && window.QADASH.desktop
 const router = createRouter({
-  history: createWebHistory(),
+  history: isElectron ? createWebHashHistory() : createWebHistory(),
   routes: [
     { path: '/', redirect: '/dashboard' },
     { path: '/dashboard', component: Dashboard },

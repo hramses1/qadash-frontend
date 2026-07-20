@@ -1,13 +1,14 @@
 import { ref } from 'vue'
 import { io } from 'socket.io-client'
-import { getActiveProfileId, onProfileChange } from './apiFetch.js'
+import { getActiveProfileId, onProfileChange, apiBase } from './apiFetch.js'
 import { useProfiles } from './useProfiles.js'
 
 let instance = null
 
 export function useSocket() {
   if (!instance) {
-    const socket = io('/', {
+    // En web: mismo origen ('/'). En Electron: origen HTTP del backend.
+    const socket = io(apiBase() || '/', {
       path: '/socket.io',
       transports: ['websocket', 'polling']
     })

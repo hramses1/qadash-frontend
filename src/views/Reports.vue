@@ -69,8 +69,8 @@
             <div class="report-meta">
               <span class="report-date">{{ formatDate(report.timestamp) }}</span>
               <div class="report-actions" @click.stop>
-                <a :href="`/api/reports/${report.id}/download/json`" class="btn btn-sm btn-secondary" download>↓ JSON</a>
-                <a :href="`/api/reports/${report.id}/download/html`" class="btn btn-sm btn-secondary" target="_blank">↗ HTML</a>
+                <a :href="apiUrl(`/api/reports/${report.id}/download/json`)" class="btn btn-sm btn-secondary" download>↓ JSON</a>
+                <a :href="apiUrl(`/api/reports/${report.id}/download/html`)" class="btn btn-sm btn-secondary" target="_blank">↗ HTML</a>
                 <button class="btn btn-sm btn-danger" @click="deleteReport(report.id)">Eliminar</button>
               </div>
             </div>
@@ -91,8 +91,8 @@
           <h2>{{ formatDate(selectedReport.timestamp) }}</h2>
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm btn-pdf no-print" @click="printReportPDF">⬇ PDF</button>
-            <a :href="`/api/reports/${selectedReport.id}/download/json`" class="btn btn-sm btn-secondary no-print" download>↓ JSON</a>
-            <a :href="`/api/reports/${selectedReport.id}/download/html`" class="btn btn-sm btn-secondary no-print" target="_blank">↗ HTML</a>
+            <a :href="apiUrl(`/api/reports/${selectedReport.id}/download/json`)" class="btn btn-sm btn-secondary no-print" download>↓ JSON</a>
+            <a :href="apiUrl(`/api/reports/${selectedReport.id}/download/html`)" class="btn btn-sm btn-secondary no-print" target="_blank">↗ HTML</a>
           </div>
         </div>
         <div class="summary-cards">
@@ -408,7 +408,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { apiFetch } from '../composables/apiFetch.js'
+import { apiFetch, apiUrl } from '../composables/apiFetch.js'
 
 // ── Tab state ─────────────────────────────────────────────────────────────────
 const activeTab = ref('list')

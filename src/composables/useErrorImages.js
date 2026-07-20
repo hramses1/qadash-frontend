@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { apiFetch } from './apiFetch.js';
+import { apiFetch, apiUrl } from './apiFetch.js';
 
 const images = ref([])      // [{ name, mtime, size }]
 const folder = ref('')
@@ -27,7 +27,7 @@ async function fetchImages() {
 }
 
 function imageUrl(name) {
-  return `/api/errors/image?name=${encodeURIComponent(name)}`
+  return apiUrl(`/api/errors/image?name=${encodeURIComponent(name)}`)
 }
 
 export function useErrorImages() {

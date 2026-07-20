@@ -68,7 +68,7 @@
         <a class="link-pill" href="http://localhost:7900" target="_blank" rel="noopener">
           👀 Ver navegador en vivo (pass: secret)
         </a>
-        <a class="link-pill" :class="{ disabled: !hasReport }" href="/api/docker/report" target="_blank" rel="noopener">
+        <a class="link-pill" :class="{ disabled: !hasReport }" :href="apiUrl('/api/docker/report')" target="_blank" rel="noopener">
           📄 Ver reporte HTML
         </a>
       </div>
@@ -140,6 +140,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, watch, nextTick, ref } from 'vue'
 import { useDockerState } from '../composables/useDockerState'
+import { apiUrl } from '../composables/apiFetch.js'
 
 defineOptions({ name: 'Docker' })
 

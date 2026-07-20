@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { getActiveProfileId, setActiveProfileId } from './apiFetch.js';
+import { getActiveProfileId, setActiveProfileId, apiUrl } from './apiFetch.js';
 
 // Estado singleton de perfiles (workspaces). El CRUD pega a /api/profile-admin,
 // que NO pasa por el middleware de perfil (gestiona perfiles en sí).
@@ -18,7 +18,7 @@ function setRunning(list) {
 async function jreq(url, options) {
   let res;
   try {
-    res = await fetch(url, options);
+    res = await fetch(apiUrl(url), options);
   } catch (e) {
     throw new Error('No se pudo contactar el servidor. ¿Backend corriendo?');
   }
