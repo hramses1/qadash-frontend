@@ -347,7 +347,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, provide, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, onUnmounted, provide, nextTick, watch } from 'vue'
 import { apiFetch } from '../composables/apiFetch.js'
 defineOptions({ name: 'Dashboard' })
 
@@ -862,13 +862,41 @@ watch([folderExpanded, fileExpanded], () => {
 }, { deep: true })
 
 
-onMounted(async () => {
+// Lee la config del perfil activo y actualiza el estado que gobierna la UI
+// (incl. hasConfig, que muestra/oculta la toolbar con "Actualizar Tests").
+async function refreshConfig() {
   const cfgRes = await apiFetch('/api/config')
   const cfg = await cfgRes.json()
   hasConfig.value = !!(cfg.projectPath)
   projectPath.value = cfg.projectPath || ''
   seleniumRemoteUrl.value = cfg.seleniumRemoteUrl || ''
   useDocker.value = !!cfg.seleniumRemoteUrl   // por defecto activo si hay grid configurado
+  return cfg
+}
+
+// La vista está bajo KeepAlive: onMounted corre una sola vez. Al volver desde
+// Configuración (tras poner la ruta) se re-lee la config para que la toolbar
+// y el botón "Actualizar Tests" aparezcan sin recargar la app.
+onActivated(async () => {
+  const cfg = await refreshConfig()
+  if (cfg.projectPath && !files.value.length) {
+    try {
+      const cacheRes = await apiFetch('/api/tests/cached')
+      const cached = await cacheRes.json()
+      if (cached.files && Object.keys(cached.files).length) {
+        const savedSelected = new Set(lsLoad('sel', []))
+        files.value = Object.entries(cached.files).map(([name, tests]) => ({
+          name,
+          tests: tests.map(id => ({ id, selected: savedSelected.has(id) }))
+        }))
+        cacheTimestamp.value = cached.timestamp || null
+      }
+    } catch {}
+  }
+})
+
+onMounted(async () => {
+  const cfg = await refreshConfig()
 
   if (cfg.projectPath) {
     // ── Restore from cached collection (no pytest re-run needed) ──
